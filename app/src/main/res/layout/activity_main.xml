@@ -5,10 +5,17 @@
     android:layout_height="match_parent"
     android:background="@color/black">
 
-    <WebView
-        android:id="@+id/webView"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
+
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -19,5 +26,20 @@
         android:indeterminate="false"
         android:max="100"
         android:progressTint="@color/youtube_red" />
+
+    <!-- Native, always-reachable entry point to Settings: the page-injected cog
+         (FeedScript.kt) tries to look "native" next to the YouTube logo, but it
+         depends on matching YouTube's ever-changing DOM. This button doesn't. -->
+    <ImageButton
+        android:id="@+id/buttonSettings"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/bg_settings_button"
+        android:contentDescription="@string/settings_title"
+        android:padding="8dp"
+        android:src="@drawable/ic_settings" />
 
 </FrameLayout>

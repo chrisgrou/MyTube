@@ -14,12 +14,14 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 private const val HOME_URL = "https://m.youtube.com/"
 private const val DESKTOP_LIKE_MOBILE_UA =
@@ -30,6 +32,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
+    private lateinit var swipeRefresh: SwipeRefreshLayout
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
 
@@ -42,6 +45,17 @@ class MainActivity : AppCompatActivity() {
         val rootContainer = findViewById<View>(R.id.rootContainer)
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
+        swipeRefresh = findViewById(R.id.swipeRefresh)
+        val buttonSettings = findViewById<ImageButton>(R.id.buttonSettings)
+
+        // Native, always-visible entry point to Settings — doesn't depend on the
+        // page-injected cog finding a match in YouTube's DOM (see FeedScript.kt).
+        buttonSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        swipeRefresh.setColorSchemeResources(R.color.youtube_red)
+        swipeRefresh.setOnRefreshListener { webView.reload() }
 
         // Edge-to-edge draws the WebView behind the status/navigation bars for a
         // borderless look, but without this the page's own top content (including
@@ -89,6 +103,7 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
                 view.evaluateJavascript(FeedScript.SCRIPT, null)
+                swipeRefresh.isRefreshing = false
             }
         }
 
