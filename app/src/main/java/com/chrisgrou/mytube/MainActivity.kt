@@ -39,19 +39,22 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         setUpEdgeToEdge()
 
+        val rootContainer = findViewById<View>(R.id.rootContainer)
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
 
         // Edge-to-edge draws the WebView behind the status/navigation bars for a
         // borderless look, but without this the page's own top content (including
         // the injected cog button) renders underneath the status bar and becomes
-        // unreachable. Pad the WebView by the system bars instead of letting the
-        // page itself sit behind them.
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
+        // unreachable. Padding the WebView itself doesn't work — WebView doesn't
+        // honor its own padding for laying out rendered page content — so pad the
+        // parent container instead, which genuinely shrinks the WebView's bounds.
+        ViewCompat.setOnApplyWindowInsetsListener(rootContainer) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
+            WindowInsetsCompat.CONSUMED
         }
+        ViewCompat.requestApplyInsets(rootContainer)
 
         val settings: WebSettings = webView.settings
         settings.javaScriptEnabled = true
