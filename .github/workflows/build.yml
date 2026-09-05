@@ -1,0 +1,82 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mytube-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      # Powers the in-app update check (Settings → Έλεγχος για ενημερώσεις): the app
+      # polls this fixed "latest" release's tag/assets, so every push to a branch
+      # replaces it rather than accumulating a release per commit.
+      - name: Publish "latest" release for in-app updates
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk_src=$(ls app/build/outputs/apk/debug/*.apk | head -n1)
+          apk_name="mytube-${GITHUB_RUN_NUMBER}.apk"
+          cp "$apk_src" "$apk_name"
+
+          before="${{ github.event.before }}"
+          if [ -n "$before" ] && [ "$before" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$before" 2>/dev/null; then
+            changelog=$(git log --pretty=format:"- %s" "$before"..${{ github.sha }})
+          fi
+          if [ -z "$changelog" ]; then
+            changelog=$(git log -1 --pretty=format:"- %s" ${{ github.sha }})
+          fi
+          notes=$(printf 'Build #%s\n\n%s' "$GITHUB_RUN_NUMBER" "$changelog")
+
+          gh release delete latest --yes --cleanup-tag -R "${{ github.repository }}" || true
+
+          # Create the "latest" tag as a real ref ourselves and push it *before*
+          # calling `gh release create` (rather than relying on its --target to
+          # implicitly create the tag). Immediately after the delete above,
+          # GitHub's tag deletion hasn't always propagated by the time the next
+          # API call runs, and `gh release create --target` racing that dangling
+          # state was landing the release on a placeholder "untagged-<sha>" ref
+          # as an unpublished draft instead of on "latest" — invisible to the
+          # app's public /releases/tags/latest lookup even though the workflow
+          # step itself reported success.
+          git tag -f latest "${{ github.sha }}"
+          git push origin refs/tags/latest --force
+
+          gh release create latest "$apk_name" \
+            -R "${{ github.repository }}" \
+            --title "Latest build (#${GITHUB_RUN_NUMBER})" \
+            --notes "$notes" \
+            --prerelease
