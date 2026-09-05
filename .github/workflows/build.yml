@@ -1,0 +1,33 @@
+name: Build APK
+
+# Runs on every push (any branch) and can also be triggered manually from the
+# Actions tab ("Run workflow"). Builds a debug APK and uploads it as a build
+# artifact you can download straight from the workflow run — no tag needed.
+# For a signed release APK published as a GitHub Release (used by the app's
+# in-app updater), see release.yml, triggered by pushing a vX.Y.Z tag.
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mytube-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
