@@ -1,12 +1,7 @@
 package com.chrisgrou.mytube
 
-import android.app.DownloadManager
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
@@ -14,10 +9,11 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.chrisgrou.mytube.update.UpdateChecker
+import com.chrisgrou.mytube.update.UpdateInfo
+import com.chrisgrou.mytube.update.UpdateInstaller
 import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -35,24 +31,12 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var buttonDownloadInstall: Button
     private lateinit var progressUpdate: ProgressBar
     private lateinit var containerHistory: LinearLayout
-    private lateinit var containerReleases: LinearLayout
 
-    private var pendingRelease: GitHubRelease? = null
-    private var pendingDownloadId: Long? = null
-
-    private val downloadReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-            if (id == -1L || id != pendingDownloadId) return
-            progressUpdate.visibility = View.GONE
-            installDownloadedApk(id)
-        }
-    }
+    private var pendingUpdate: UpdateInfo? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         prefs = Prefs(this)
         switchFilter = findViewById(R.id.switchFilterImagePosts)
@@ -62,96 +46,75 @@ class SettingsActivity : AppCompatActivity() {
         buttonDownloadInstall = findViewById(R.id.buttonDownloadInstall)
         progressUpdate = findViewById(R.id.progressUpdate)
         containerHistory = findViewById(R.id.containerHistory)
-        containerReleases = findViewById(R.id.containerReleases)
 
         switchFilter.isChecked = prefs.hideImagePosts
         switchFilter.setOnCheckedChangeListener { _, isChecked ->
             prefs.hideImagePosts = isChecked
         }
 
-        textCurrentVersion.text = getString(R.string.current_version, BuildConfig.VERSION_NAME)
+        textCurrentVersion.text = getString(
+            R.string.current_version,
+            "${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
+        )
 
         buttonCheckUpdates.setOnClickListener { checkForUpdates() }
         buttonDownloadInstall.setOnClickListener { onDownloadInstallClicked() }
 
-        ContextCompat.registerReceiver(
-            this,
-            downloadReceiver,
-            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-
         renderHistory()
-    }
-
-    override fun onDestroy() {
-        try {
-            unregisterReceiver(downloadReceiver)
-        } catch (e: IllegalArgumentException) {
-            // was never registered / already unregistered — ignore
-        }
-        super.onDestroy()
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        onBackPressedDispatcher.onBackPressed()
-        return true
     }
 
     private fun checkForUpdates() {
         buttonCheckUpdates.isEnabled = false
         buttonDownloadInstall.visibility = View.GONE
+        pendingUpdate = null
         textUpdateStatus.text = getString(R.string.checking_updates)
 
         lifecycleScope.launch {
-            when (val result = UpdateManager.checkForUpdate()) {
-                is UpdateCheckResult.Success -> {
-                    renderReleases(result.releases)
-                    val update = result.updateAvailable
-                    if (update != null) {
-                        pendingRelease = update
-                        textUpdateStatus.text = getString(R.string.update_available, update.tagName)
-                        buttonDownloadInstall.visibility =
-                            if (update.apkDownloadUrl != null) View.VISIBLE else View.GONE
-                    } else {
-                        textUpdateStatus.text = getString(R.string.up_to_date)
-                    }
-                }
-                is UpdateCheckResult.Failure -> {
-                    textUpdateStatus.text = getString(R.string.update_check_failed)
-                }
+            val update = runCatching {
+                UpdateChecker.checkForUpdate(BuildConfig.GITHUB_REPO, BuildConfig.VERSION_CODE)
+            }.getOrNull()
+
+            if (update != null) {
+                pendingUpdate = update
+                val notes = update.releaseNotes?.let { "\n\n$it" } ?: ""
+                textUpdateStatus.text = getString(R.string.update_available, update.versionCode.toString()) + notes
+                buttonDownloadInstall.visibility = View.VISIBLE
+            } else {
+                textUpdateStatus.text = getString(R.string.up_to_date)
             }
             buttonCheckUpdates.isEnabled = true
         }
     }
 
     private fun onDownloadInstallClicked() {
-        val release = pendingRelease ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+        val update = pendingUpdate ?: return
+        if (!UpdateInstaller.canRequestInstall(this)) {
             textUpdateStatus.text = getString(R.string.install_permission_needed)
             val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
             startActivity(intent)
             return
         }
+
+        buttonDownloadInstall.isEnabled = false
         progressUpdate.visibility = View.VISIBLE
         progressUpdate.isIndeterminate = true
         textUpdateStatus.text = getString(R.string.downloading_update)
-        pendingDownloadId = UpdateManager.enqueueApkDownload(this, release)
-    }
 
-    private fun installDownloadedApk(downloadId: Long) {
-        val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val uri = downloadManager.getUriForDownloadedFile(downloadId) ?: return
-        // getUriForDownloadedFile already returns a content:// uri via the system
-        // Downloads provider, which is safe to hand straight to the installer.
-        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        try {
-            startActivity(installIntent)
-        } catch (e: Exception) {
-            Toast.makeText(this, e.message, Toast.LENGTH_LONG).show()
+        lifecycleScope.launch {
+            val uri = runCatching {
+                UpdateInstaller.downloadApk(this@SettingsActivity, update.apkUrl) { progress ->
+                    progressUpdate.isIndeterminate = false
+                    progressUpdate.progress = (progress * 100).toInt()
+                }
+            }.getOrElse {
+                progressUpdate.visibility = View.GONE
+                buttonDownloadInstall.isEnabled = true
+                textUpdateStatus.text = it.message ?: "Αποτυχία λήψης"
+                return@launch
+            }
+            progressUpdate.visibility = View.GONE
+            buttonDownloadInstall.isEnabled = true
+            UpdateInstaller.launchInstall(this@SettingsActivity, uri)
         }
     }
 
@@ -169,27 +132,12 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderReleases(releases: List<GitHubRelease>) {
-        containerReleases.removeAllViews()
-        releases.forEach { release ->
-            val title = "${release.name} (${release.tagName})"
-            val body = release.body.trim().ifBlank { "—" }
-            containerReleases.addView(makeInfoText(title, bold = true))
-            containerReleases.addView(makeInfoText(body))
-            containerReleases.addView(makeInfoText(" "))
-        }
-    }
-
-    private fun makeInfoText(text: String, bold: Boolean = false): TextView {
+    private fun makeInfoText(text: String): TextView {
         return TextView(this).apply {
             this.text = text
             setTextColor(0xFFCCCCCC.toInt())
             textSize = 13f
             setPadding(0, 4, 0, 4)
-            if (bold) {
-                setTextColor(0xFFFFFFFF.toInt())
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
-            }
         }
     }
 }

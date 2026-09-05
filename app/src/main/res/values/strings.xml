@@ -11,14 +11,11 @@
     <string name="check_updates">Έλεγχος για ενημερώσεις</string>
     <string name="checking_updates">Έλεγχος…</string>
     <string name="up_to_date">Έχεις την τελευταία έκδοση.</string>
-    <string name="update_available">Διαθέσιμη νέα έκδοση: %1$s</string>
+    <string name="update_available">Διαθέσιμη νέα έκδοση (build %1$s)</string>
     <string name="download_install">Λήψη &amp; εγκατάσταση</string>
     <string name="downloading_update">Γίνεται λήψη της ενημέρωσης…</string>
-    <string name="update_check_failed">Ο έλεγχος ενημερώσεων απέτυχε. Έλεγξε τη σύνδεσή σου.</string>
     <string name="install_permission_needed">Χρειάζεται άδεια εγκατάστασης από άγνωστες πηγές.</string>
-    <string name="grant_permission">Παραχώρηση άδειας</string>
 
     <string name="section_history">Ιστορικό ενημερώσεων</string>
     <string name="history_empty">Δεν υπάρχει ακόμα ιστορικό ενημερώσεων σε αυτή τη συσκευή.</string>
-    <string name="section_releases">Εκδόσεις στο GitHub</string>
 </resources>

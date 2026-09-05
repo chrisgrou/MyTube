@@ -63,32 +63,42 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
   πρόσβαση internet προς youtube.com μέσα στο περιβάλλον όπου γράφτηκε ο κώδικας). Θέλει
   οπτικό έλεγχο σε πραγματική συσκευή/emulator και πιθανή μικρορύθμιση των selectors/θέσης.
 
-### 4. Update μηχανισμός (GitHub Releases)
-- `UpdateManager.kt`: καλεί `GET https://api.github.com/repos/chrisgrou/mytube/releases`
-  (public API, χωρίς token), παίρνει τη λίστα releases, συγκρίνει το `tag_name` του πιο
-  πρόσφατου με το `versionName` της εφαρμογής (dotted numeric comparison).
-- Αν υπάρχει release με asset `.apk`, το κουμπί "Λήψη & εγκατάσταση" το κατεβάζει μέσω
-  `DownloadManager` (destination: app-specific external files dir — δεν χρειάζεται storage
-  permission) και μετά ανοίγει installer intent (`ACTION_VIEW` με το APK mime type).
+### 4. Update μηχανισμός (GitHub Releases) — ίδιο pattern με `thrylos-news` / `no-algo-fb`
+Αντί για semver tags, χρησιμοποιείται το ίδιο μοτίβο με τα άλλα δύο projects του χρήστη:
+ένα **σταθερό tag `latest`** που το CI αντικαθιστά σε κάθε push, και ένα versionCode που
+προέρχεται απευθείας από τον αριθμό build του CI.
+
+- **`versionCode`** (στο `app/build.gradle.kts`) = `System.getenv("GITHUB_RUN_NUMBER")`
+  (fallback `1` για τοπικά builds). Κάθε CI run παίρνει αυξανόμενο, μοναδικό αριθμό.
+- **Committed debug keystore** (`keystore/debug.keystore`, στο repo — δεν είναι μυστικό,
+  είναι σκόπιμα δημόσιο): χωρίς αυτό, κάθε CI run θα υπέγραφε το APK με νέο, τυχαίο
+  debug key (αφού το CI runner δεν έχει `~/.android/debug.keystore` από πριν), και το
+  Android θα αρνιόταν να κάνει "update" πάνω από την προηγούμενη εγκατάσταση (θα ζητούσε
+  uninstall πρώτα, αφού θα έβλεπε διαφορετική υπογραφή). Το `debug` build type δείχνει σε
+  αυτό το keystore ρητά.
+- **`UpdateChecker.kt`** (`update/` package): καλεί
+  `GET https://api.github.com/repos/chrisgrou/mytube/releases/tags/latest`, διαβάζει το
+  πρώτο asset (το APK, ονομασμένο `mytube-<versionCode>.apk`), εξάγει το version code από
+  το **όνομα του αρχείου** (regex), και το συγκρίνει με το `BuildConfig.VERSION_CODE`.
+- **`UpdateInstaller.kt`**: κατεβάζει το APK σε `cacheDir/updates/` (OkHttp, με progress
+  callback), το εκθέτει μέσω `FileProvider` (χρειάζεται ξανά `<provider>` στο Manifest +
+  `res/xml/file_paths.xml`), και ανοίγει installer intent.
 - Χρειάζεται `REQUEST_INSTALL_PACKAGES` permission· αν ο χρήστης δεν έχει επιτρέψει
-  εγκατάσταση από άγνωστες πηγές για το app, τον στέλνουμε στο σχετικό system settings
-  screen (`ACTION_MANAGE_UNKNOWN_APP_SOURCES`).
-- **Έλεγχος μόνο χειροκίνητα** (κουμπί στις Ρυθμίσεις) — καμία background/startup κλήση,
-  όπως αποφασίστηκε.
-- **Ιστορικό**: δύο διαφορετικά "ιστορικά" εμφανίζονται στις Ρυθμίσεις:
-  - *Τοπικό ιστορικό εγκαταστάσεων* (`Prefs.historyEntries()`): καταγράφεται αυτόματα από
-    το `MyTubeApp.onCreate()` κάθε φορά που αλλάζει το version code της εγκατεστημένης
-    εφαρμογής (δηλαδή μετά από κάθε πραγματική ενημέρωση σε αυτή τη συσκευή).
-  - *Releases από GitHub* (remote λίστα με release notes) — φαίνεται μετά από κάθε
-    "Έλεγχος για ενημερώσεις".
-- **CI**: `.github/workflows/release.yml` χτίζει αυτόματα APK (`assembleRelease`) και
-  δημιουργεί GitHub Release με το APK attached κάθε φορά που γίνεται push ένα tag
-  `vX.Y.Z`. Αυτό είναι το "τροφοδοτικό" του update μηχανισμού — χωρίς αυτό δεν θα υπάρχουν
-  releases/APK να κατέβει η εφαρμογή.
-  - Το release build type υπογράφεται με το **debug signing config** (όχι δικό μας
-    keystore) ώστε το CI να μπορεί να παράγει εγκαταστάσιμο APK χωρίς μυστικά (secrets).
-    Αυτό είναι μια χαλαρή λύση, βολική για προσωπική χρήση/sideloading· **δεν είναι**
-    κατάλληλη λύση αν ποτέ μπει σε Play Store (θα χρειαστεί πραγματικό release keystore).
+  εγκατάσταση από άγνωστες πηγές, τον στέλνουμε στο `ACTION_MANAGE_UNKNOWN_APP_SOURCES`.
+- **Έλεγχος μόνο χειροκίνητα** (κουμπί "Έλεγχος για ενημερώσεις" στις Ρυθμίσεις) — καμία
+  background/startup κλήση, όπως αποφασίστηκε.
+- **Ιστορικό**: το *τοπικό ιστορικό εγκαταστάσεων* (`Prefs.historyEntries()`) καταγράφεται
+  αυτόματα από το `MyTubeApp.onCreate()` κάθε φορά που αλλάζει το version code της
+  εγκατεστημένης εφαρμογής. Τα release notes του πιο πρόσφατου build (changelog από τα git
+  commits) εμφανίζονται inline μετά από κάθε "Έλεγχος για ενημερώσεις".
+- **CI**: ένα και μοναδικό `.github/workflows/build.yml`, ίδιο σχήμα με τα άλλα projects:
+  - Τρέχει σε **κάθε push** σε οποιοδήποτε branch, σε κάθε pull request, και έχει και
+    "Run workflow" κουμπί (manual trigger) στο Actions tab.
+  - Χτίζει `assembleDebug` και το ανεβάζει ως **build artifact** (`mytube-debug`) — αυτό
+    κατεβάζεις απευθείας από ένα run στο Actions tab, χωρίς να χρειάζεται release/tag.
+  - Σε κάθε **push** (όχι σε PR), διαγράφει και ξαναδημιουργεί το prerelease `latest`
+    με το APK attached και σημειώσεις από το git log του push — αυτό είναι που "βλέπει"
+    ο in-app updater.
 
 ## Περιορισμός στο περιβάλλον όπου γράφτηκε ο κώδικας
 Το sandbox αυτής της συνεδρίας **δεν έχει πρόσβαση σε `dl.google.com`** (Google's Maven
@@ -105,14 +115,16 @@ compile εδώ**. Ο κώδικας ελέγχθηκε προσεκτικά "μ�
 ## Δομή project
 ```
 app/src/main/java/com/chrisgrou/mytube/
-  MainActivity.kt        - WebView + edge-to-edge + injection hook
-  SettingsActivity.kt     - Ρυθμίσεις (filter toggle, updates, ιστορικό)
-  WebAppInterface.kt      - JavascriptInterface (window.MyTubeNative)
-  FeedScript.kt           - injected JS (filtering + cog button)
-  UpdateManager.kt        - GitHub Releases API + download
-  Prefs.kt                - SharedPreferences wrapper
-  MyTubeApp.kt            - Application, καταγραφή τοπικού ιστορικού version
-.github/workflows/release.yml - CI build + GitHub Release στο tag push
+  MainActivity.kt          - WebView + edge-to-edge + injection hook
+  SettingsActivity.kt      - Ρυθμίσεις (filter toggle, updates, ιστορικό)
+  WebAppInterface.kt       - JavascriptInterface (window.MyTubeNative)
+  FeedScript.kt            - injected JS (filtering + cog button)
+  Prefs.kt                 - SharedPreferences wrapper
+  MyTubeApp.kt             - Application, καταγραφή τοπικού ιστορικού version
+  update/UpdateChecker.kt  - διαβάζει το release "latest" από το GitHub API
+  update/UpdateInstaller.kt - download (OkHttp) + FileProvider + install intent
+keystore/debug.keystore   - committed debug key (βλ. ενότητα 4 παραπάνω)
+.github/workflows/build.yml - CI: build + artifact σε κάθε push, "latest" release σε push
 ```
 
 ## Επόμενα βήματα / ιδέες (δεν έχουν υλοποιηθεί ακόμα)
