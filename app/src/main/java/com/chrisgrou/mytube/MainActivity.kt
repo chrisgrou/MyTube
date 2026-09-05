@@ -16,7 +16,9 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 private const val HOME_URL = "https://m.youtube.com/"
@@ -39,6 +41,17 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
+
+        // Edge-to-edge draws the WebView behind the status/navigation bars for a
+        // borderless look, but without this the page's own top content (including
+        // the injected cog button) renders underneath the status bar and becomes
+        // unreachable. Pad the WebView by the system bars instead of letting the
+        // page itself sit behind them.
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
 
         val settings: WebSettings = webView.settings
         settings.javaScriptEnabled = true
