@@ -89,7 +89,10 @@ class MainActivity : AppCompatActivity() {
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
 
-        webView.addJavascriptInterface(WebAppInterface(this), "MyTubeNative")
+        webView.addJavascriptInterface(
+            WebAppInterface(this) { allowed -> swipeRefresh.isEnabled = allowed },
+            "MyTubeNative"
+        )
 
         // The primary injection path: runs before any of the page's own scripts,
         // for every navigation including SPA soft-navigations — far more reliable
@@ -117,6 +120,7 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 view.evaluateJavascript(FeedScript.SCRIPT, null)
                 swipeRefresh.isRefreshing = false
+                swipeRefresh.isEnabled = true
             }
         }
 

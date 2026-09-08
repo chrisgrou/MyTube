@@ -113,6 +113,41 @@ object FeedScript {
     try { applyFilter(); } catch (e) { console.error('MyTube applyFilter failed', e); }
   }
 
+  // The native pull-to-refresh only knows whether the *main page* is scrolled to
+  // the top — it has no idea a touch actually landed inside one of YouTube's own
+  // nested scrollable panels (comments, a bottom sheet, an engagement panel), so
+  // without this a downward swipe meant to scroll that panel gets eaten as a
+  // page refresh instead. On every touch, walk up from the touch target (through
+  // shadow DOM boundaries via composedPath) looking for a scrollable ancestor
+  // that isn't the page itself; if found, tell native to disable the pull gesture
+  // until the next touch starts.
+  function isScrollable(el) {
+    if (!el || el === document.body || el === document.documentElement) return false;
+    var style = window.getComputedStyle(el);
+    var overflowY = style.overflowY;
+    return (overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
+  }
+
+  function setPullToRefreshAllowed(allowed) {
+    try { window.MyTubeNative.setPullToRefreshAllowed(allowed); } catch (e) {}
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    var path = typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
+    var nestedScrollable = false;
+    for (var i = 0; i < path.length; i++) {
+      if (isScrollable(path[i])) {
+        nestedScrollable = true;
+        break;
+      }
+    }
+    setPullToRefreshAllowed(!nestedScrollable);
+  }, { capture: true, passive: true });
+
+  document.addEventListener('touchend', function() {
+    setPullToRefreshAllowed(true);
+  }, { capture: true, passive: true });
+
   var observer = new MutationObserver(function() { tick(); });
   function startObserving() {
     if (document.body) {
