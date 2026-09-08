@@ -8,6 +8,8 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.util.Log
+import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -22,6 +24,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 
 private const val HOME_URL = "https://m.youtube.com/"
 private const val DESKTOP_LIKE_MOBILE_UA =
@@ -87,6 +91,15 @@ class MainActivity : AppCompatActivity() {
 
         webView.addJavascriptInterface(WebAppInterface(this), "MyTubeNative")
 
+        // The primary injection path: runs before any of the page's own scripts,
+        // for every navigation including SPA soft-navigations — far more reliable
+        // than waiting for onPageFinished and calling evaluateJavascript reactively
+        // (which onPageFinished below still does too, as a fallback for older
+        // WebView versions where this feature isn't supported).
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(webView, FeedScript.SCRIPT, setOf("*"))
+        }
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -137,6 +150,13 @@ class MainActivity : AppCompatActivity() {
                 webView.visibility = View.VISIBLE
                 customViewCallback?.onCustomViewHidden()
                 customViewCallback = null
+            }
+
+            override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                if (message.message().contains("MyTube")) {
+                    Log.d("MyTubeWebView", "${message.message()} (${message.sourceId()}:${message.lineNumber()})")
+                }
+                return true
             }
         }
 

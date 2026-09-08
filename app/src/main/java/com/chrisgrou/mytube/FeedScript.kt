@@ -6,11 +6,19 @@ package com.chrisgrou.mytube
  * 1. Adds a settings (cog) button next to the YouTube logo in the header, styled
  *    to look like a native part of the page. If the exact header markup can't be
  *    found (YouTube changes its DOM often) it falls back to a floating button in
- *    the same visual spot, so the entry point to Settings never disappears.
+ *    the same visual spot. MainActivity also adds a native Android button as a
+ *    guaranteed-visible fallback, since this injected one depends on matching
+ *    YouTube's markup.
  *
  * 2. Hides community "posts" that show images instead of a video — never touches
- *    normal video items or the Shorts shelf, since those use different element
- *    tags. Runs on a MutationObserver + interval because m.youtube.com is a
+ *    normal video items (`ytm-rich-item-renderer`) or the Shorts shelf, since
+ *    those use different element tags. Confirmed against a real captured DOM
+ *    (m.youtube.com, Sept 2026): a community post is
+ *    `ytm-rich-section-renderer > div.rich-section-content >
+ *    ytm-backstage-post-thread-renderer > ytm-backstage-post-renderer`, so hiding
+ *    the `ytm-rich-section-renderer` ancestor removes the whole card cleanly
+ *    (header, text, images, like/comment row) with no leftover gap.
+ *    Runs on a MutationObserver + interval because m.youtube.com is a
  *    single-page app that swaps content without a full page load.
  *
  * Because this is scraping a third-party page we don't control, the selectors
@@ -27,8 +35,8 @@ object FeedScript {
     try { return window.MyTubeNative.isHideImagePostsEnabled(); } catch (e) { return true; }
   }
 
-  var POST_SELECTOR = 'ytm-backstage-post-renderer, ytm-post-renderer, ytd-backstage-post-renderer, ytm-shared-post-renderer, [class*="backstage-post"]';
-  var ITEM_WRAPPER_SELECTOR = 'ytm-rich-item-renderer, ytm-item-section-renderer > div, ytd-rich-item-renderer';
+  var POST_SELECTOR = 'ytm-backstage-post-thread-renderer, ytm-backstage-post-renderer, ytm-post-multi-image-renderer, ytm-shared-post-renderer';
+  var ITEM_WRAPPER_SELECTOR = 'ytm-rich-section-renderer, ytm-rich-item-renderer, ytm-item-section-renderer > div';
 
   function applyFilter() {
     var hide = isHideEnabled();
@@ -101,8 +109,8 @@ object FeedScript {
   }
 
   function tick() {
-    ensureCogButton();
-    applyFilter();
+    try { ensureCogButton(); } catch (e) { console.error('MyTube ensureCogButton failed', e); }
+    try { applyFilter(); } catch (e) { console.error('MyTube applyFilter failed', e); }
   }
 
   var observer = new MutationObserver(function() { tick(); });
