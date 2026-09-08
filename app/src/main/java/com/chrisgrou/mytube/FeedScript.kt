@@ -13,7 +13,14 @@ package com.chrisgrou.mytube
  *    light-DOM children handed to them; a first attempt building a row out of
  *    that exact tag never rendered anything for precisely that reason.
  *
- * 2. Hides community "posts" that show images instead of a video — never touches
+ * 2. Blocks ads, in the two ways request-level blocking (AdBlocker.kt) can't:
+ *    strips the ad fields out of the /youtubei/v1/player response before
+ *    YouTube's own code reads it (that's what removes pre-roll/mid-roll ads,
+ *    whose media comes from the same hosts as real video), and hides sponsored
+ *    items in the feed. The player patching depends on this script running at
+ *    document-start, before any page script.
+ *
+ * 3. Hides community "posts" that show images instead of a video — never touches
  *    normal video items (`ytm-rich-item-renderer`) or the Shorts shelf, since
  *    those use different element tags. Confirmed against a real captured DOM
  *    (m.youtube.com, Sept 2026): a community post is
@@ -36,6 +43,130 @@ object FeedScript {
 
   function isHideEnabled() {
     try { return window.MyTubeNative.isHideImagePostsEnabled(); } catch (e) { return true; }
+  }
+
+  function isAdBlockEnabled() {
+    try { return window.MyTubeNative.isAdBlockEnabled(); } catch (e) { return true; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // In-stream (pre-roll / mid-roll) ad removal.
+  //
+  // These ads can't be blocked by URL: their media comes from the same
+  // googlevideo.com hosts as the real video, and the instructions to play them
+  // ride inside the ordinary /youtubei/v1/player response. So instead we strip
+  // the ad fields out of that response before YouTube's own code ever reads it.
+  // This only works because the whole script is injected at document-start
+  // (WebViewCompat.addDocumentStartJavaScript), i.e. before any page script runs.
+  // ---------------------------------------------------------------------------
+  var AD_KEYS = ['adPlacements', 'playerAds', 'adSlots', 'adBreakHeartbeatParams'];
+
+  function stripAds(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    for (var i = 0; i < AD_KEYS.length; i++) {
+      if (AD_KEYS[i] in obj) {
+        try { delete obj[AD_KEYS[i]]; } catch (e) {}
+      }
+    }
+    if (obj.playerResponse) stripAds(obj.playerResponse);
+    if (obj.player_response) stripAds(obj.player_response);
+    return obj;
+  }
+
+  // Responses parsed in JS (XHR, inline JSON).
+  var origParse = JSON.parse;
+  JSON.parse = function() {
+    var out = origParse.apply(this, arguments);
+    if (isAdBlockEnabled()) stripAds(out);
+    return out;
+  };
+
+  // Responses read via fetch().json() — that's native and never goes through
+  // the JSON.parse above, so it needs its own patch.
+  if (window.Response && Response.prototype && Response.prototype.json) {
+    var origJson = Response.prototype.json;
+    Response.prototype.json = function() {
+      return origJson.apply(this, arguments).then(function(data) {
+        if (isAdBlockEnabled()) stripAds(data);
+        return data;
+      });
+    };
+  }
+
+  // The very first player response is assigned as a plain object literal by an
+  // inline script, so neither patch above sees it — intercept the assignment.
+  try {
+    var initialPlayerResponse;
+    Object.defineProperty(window, 'ytInitialPlayerResponse', {
+      configurable: true,
+      get: function() { return initialPlayerResponse; },
+      set: function(value) {
+        initialPlayerResponse = isAdBlockEnabled() ? stripAds(value) : value;
+      }
+    });
+  } catch (e) {}
+
+  // Last-resort fallback for an ad that still starts playing: burn through it.
+  // Gated on YouTube's own ad-playing markers so a real video is never scrubbed.
+  var AD_PLAYING_SELECTOR = '.ad-showing, .ytp-ad-player-overlay, .ytp-ad-module, .ytmAdBadge';
+  var AD_SKIP_SELECTOR = '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytmAdsSkipButton, ' +
+    '[aria-label*="Skip ad"], [aria-label*="Παράλειψη"]';
+
+  function skipVideoAd() {
+    if (!isAdBlockEnabled()) return;
+    if (!document.querySelector(AD_PLAYING_SELECTOR)) return;
+
+    var skip = document.querySelector(AD_SKIP_SELECTOR);
+    if (skip) { skip.click(); return; }
+
+    var video = document.querySelector('video');
+    if (video && isFinite(video.duration) && video.duration > 0) {
+      try { video.currentTime = video.duration; } catch (e) {}
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Display ads in the feed / search results. Ad renderers change names often, so
+  // rather than relying only on tag names this also looks for YouTube's own
+  // "Sponsored" badge inside a feed item and hides the whole item. Each item is
+  // scanned once (data-mytube-adscan) to keep this cheap on a long feed.
+  // ---------------------------------------------------------------------------
+  var AD_TAG_SELECTOR = 'ytm-promoted-sparkles-web-renderer, ytm-promoted-video-renderer, ' +
+    'ytm-promoted-sparkles-text-search-renderer, ytm-companion-slot-renderer, ' +
+    'ytm-action-companion-ad-renderer, ytm-display-ad-renderer, ytm-carousel-ad-renderer, ' +
+    'ytm-search-pyv-renderer, ad-slot-renderer, ytm-ad-slot-renderer, ytd-ad-slot-renderer';
+  var AD_BADGES = ['sponsored', 'ad', 'ads', 'διαφήμιση', 'χορηγούμενο', 'χορηγειται'];
+  var FEED_ITEM_SELECTOR = 'ytm-rich-item-renderer, ytm-rich-section-renderer, ytm-item-section-renderer, ytm-video-with-context-renderer';
+
+  function hideElement(el) {
+    el.style.setProperty('display', 'none', 'important');
+    el.setAttribute('data-mytube-ad-hidden', '1');
+  }
+
+  function hideAds() {
+    if (!isAdBlockEnabled()) return;
+
+    var byTag = document.querySelectorAll(AD_TAG_SELECTOR);
+    for (var i = 0; i < byTag.length; i++) {
+      hideElement(byTag[i].closest(FEED_ITEM_SELECTOR) || byTag[i]);
+    }
+
+    var items = document.querySelectorAll(FEED_ITEM_SELECTOR);
+    for (var j = 0; j < items.length; j++) {
+      var item = items[j];
+      if (item.getAttribute('data-mytube-adscan') === '1') continue;
+      item.setAttribute('data-mytube-adscan', '1');
+
+      var labels = item.querySelectorAll('span, div[role="text"]');
+      var limit = labels.length < 40 ? labels.length : 40;
+      for (var k = 0; k < limit; k++) {
+        var text = (labels[k].textContent || '').trim().toLowerCase();
+        if (text.length <= 14 && AD_BADGES.indexOf(text) !== -1) {
+          hideElement(item);
+          break;
+        }
+      }
+    }
   }
 
   var POST_SELECTOR = 'ytm-backstage-post-thread-renderer, ytm-backstage-post-renderer, ytm-post-multi-image-renderer, ytm-shared-post-renderer';
@@ -93,6 +224,8 @@ object FeedScript {
   function tick() {
     try { ensureSettingsMenuItem(); } catch (e) { console.error('MyTube ensureSettingsMenuItem failed', e); }
     try { applyFilter(); } catch (e) { console.error('MyTube applyFilter failed', e); }
+    try { hideAds(); } catch (e) { console.error('MyTube hideAds failed', e); }
+    try { skipVideoAd(); } catch (e) { console.error('MyTube skipVideoAd failed', e); }
   }
 
   // The native pull-to-refresh only knows whether the *main page* is scrolled to

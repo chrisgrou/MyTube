@@ -18,6 +18,7 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
    του YouTube, που ανοίγει native οθόνη ρυθμίσεων της εφαρμογής.
 4. Υποστηρίζει ενημερώσεις (updates) μέσω GitHub Releases του ίδιου repo, με ιστορικό,
    παρόμοιο με το πρότυπο του project `thrylos-news`.
+5. Αποκλείει διαφημίσεις, όπως κάνει ο Brave (βλ. ενότητα 5 παρακάτω).
 
 ## Αρχιτεκτονική / decisions
 
@@ -103,6 +104,42 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
   - Σε κάθε **push** (όχι σε PR), διαγράφει και ξαναδημιουργεί το prerelease `latest`
     με το APK attached και σημειώσεις από το git log του push — αυτό είναι που "βλέπει"
     ο in-app updater.
+
+### 5. Αποκλεισμός διαφημίσεων (toggle στις Ρυθμίσεις, default ON)
+Τρία επίπεδα, γιατί το YouTube σερβίρει τις διαφημίσεις με τρεις διαφορετικούς τρόπους:
+
+1. **Network level** (`AdBlocker.kt` + `shouldInterceptRequest`): μπλοκάρει requests προς
+   ad/tracker domains (doubleclick, googlesyndication, googleadservices, adservice.google.*,
+   google-analytics, 2mdn κ.λπ.) και προς συγκεκριμένα ad paths του youtube.com
+   (`/pagead/`, `/api/stats/ads`, `/ptracking`). Αυτή είναι η ίδια βασική ιδέα με τον Brave.
+   - Η λίστα είναι **σκόπιμα συντηρητική**: `*.googlevideo.com` (τα ίδια τα streams),
+     `i.ytimg.com`/`yt3.ggpht.com` (thumbnails) και όλα τα `accounts.google.com` (login)
+     ΔΕΝ μπλοκάρονται ποτέ — αν μπουν στη λίστα, σπάει η αναπαραγωγή ή το login.
+   - Το `shouldInterceptRequest` καλείται σε background thread για **κάθε** request, οπότε
+     το preference διαβάζεται μία φορά σε ένα `@Volatile` field (refresh στο `onResume`),
+     ποτέ SharedPreferences μέσα στο hot path.
+2. **In-stream ads (pre-roll/mid-roll)** — δεν μπλοκάρονται με URL: το media τους έρχεται
+   από τα ίδια googlevideo.com hosts με το κανονικό βίντεο, και οι οδηγίες αναπαραγωγής
+   είναι μέσα στο κανονικό `/youtubei/v1/player` response. Οπότε στο `FeedScript.kt`
+   αφαιρούνται τα ad fields (`adPlacements`, `playerAds`, `adSlots`,
+   `adBreakHeartbeatParams`) **πριν** τα διαβάσει ο κώδικας του YouTube, με τρία patches:
+   `JSON.parse` (XHR/inline), `Response.prototype.json` (fetch — είναι native και ΔΕΝ περνά
+   από το JSON.parse), και ένα setter στο `window.ytInitialPlayerResponse` (το πρώτο
+   response ανατίθεται ως object literal, δεν το πιάνει κανένα από τα άλλα δύο).
+   - **Δουλεύει μόνο επειδή** το script τρέχει σε document-start
+     (`WebViewCompat.addDocumentStartJavaScript`), πριν από κάθε script της σελίδας.
+   - Fallback αν παρ' όλα αυτά παίξει διαφήμιση: auto-skip / fast-forward, αυστηρά
+     gated σε ad markers (`.ad-showing` κ.λπ.) ώστε να μη γίνει ποτέ scrub κανονικό βίντεο.
+3. **Display ads στο feed**: κρύβονται με γνωστά ad renderer tags ΚΑΙ με heuristic που ψάχνει
+   το badge "Sponsored"/"Διαφήμιση" μέσα σε feed item και κρύβει όλο το item. Το heuristic
+   υπάρχει επειδή τα ad renderer tags αλλάζουν συχνά — και επειδή σε κανένα από τα .mht
+   snapshots που είχαμε δεν έτυχε να υπάρχει διαφήμιση, άρα δεν επιβεβαιώθηκαν με πραγματικό
+   DOM (σε αντίθεση με τα community posts). Κάθε item σκανάρεται μία φορά
+   (`data-mytube-adscan`) για να μην κοστίζει σε μεγάλο feed.
+
+⚠️ Το YouTube δουλεύει ενεργά ενάντια στα ad blockers. Αν κάποια στιγμή εμφανιστούν ξανά
+διαφημίσεις ή μήνυμα τύπου "ad blocker detected", το πιθανότερο είναι ότι άλλαξαν τα ονόματα
+των πεδίων/των selectors — ζήτα ένα .mht snapshot και ενημέρωσε το `FeedScript.kt`.
 
 ## Περιορισμός στο περιβάλλον όπου γράφτηκε ο κώδικας
 Το sandbox αυτής της συνεδρίας **δεν έχει πρόσβαση σε `dl.google.com`** (Google's Maven

@@ -27,6 +27,11 @@ class WebAppInterface(
     }
 
     @JavascriptInterface
+    fun isAdBlockEnabled(): Boolean {
+        return Prefs(context).blockAds
+    }
+
+    @JavascriptInterface
     fun openSettings() {
         val intent = Intent(context, SettingsActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

@@ -6,6 +6,9 @@
     <string name="pref_filter_title">Απόκρυψη posts με εικόνες</string>
     <string name="pref_filter_summary">Κρύβει τα community posts που δείχνουν εικόνες (όχι βίντεο, όχι Shorts, όχι προτεινόμενα βίντεο).</string>
 
+    <string name="pref_adblock_title">Αποκλεισμός διαφημίσεων</string>
+    <string name="pref_adblock_summary">Μπλοκάρει ad/tracker domains, κρύβει τα sponsored αποτελέσματα στο feed, και αφαιρεί τις διαφημίσεις πριν/μέσα στα βίντεο.</string>
+
     <string name="section_updates">Ενημερώσεις εφαρμογής</string>
     <string name="current_version">Τρέχουσα έκδοση: %1$s</string>
     <string name="check_updates">Έλεγχος για ενημερώσεις</string>

@@ -17,6 +17,10 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_HIDE_IMAGE_POSTS, true)
         set(value) = sp.edit().putBoolean(KEY_HIDE_IMAGE_POSTS, value).apply()
 
+    var blockAds: Boolean
+        get() = sp.getBoolean(KEY_BLOCK_ADS, true)
+        set(value) = sp.edit().putBoolean(KEY_BLOCK_ADS, value).apply()
+
     /** Version code the app was at last time we recorded a history entry. */
     var lastRecordedVersionCode: Int
         get() = sp.getInt(KEY_LAST_VERSION_CODE, -1)
@@ -53,6 +57,7 @@ class Prefs(context: Context) {
 
     companion object {
         private const val KEY_HIDE_IMAGE_POSTS = "hide_image_posts"
+        private const val KEY_BLOCK_ADS = "block_ads"
         private const val KEY_LAST_VERSION_CODE = "last_version_code"
         private const val KEY_HISTORY = "update_history"
     }

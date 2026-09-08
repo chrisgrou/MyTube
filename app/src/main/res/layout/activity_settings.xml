@@ -24,8 +24,26 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="20dp"
             android:text="@string/pref_filter_summary"
+            android:textColor="#AAAAAA"
+            android:textSize="13sp" />
+
+        <!-- Αποκλεισμός διαφημίσεων -->
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switchBlockAds"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/pref_adblock_title"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="24dp"
+            android:text="@string/pref_adblock_summary"
             android:textColor="#AAAAAA"
             android:textSize="13sp" />
 

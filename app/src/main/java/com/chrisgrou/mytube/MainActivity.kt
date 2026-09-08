@@ -12,6 +12,8 @@ import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -38,6 +40,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+
+    /**
+     * Read by shouldInterceptRequest, which the WebView calls on a background
+     * thread for every single request — far too hot to hit SharedPreferences in,
+     * so the preference is mirrored here and refreshed in onResume (i.e. after
+     * returning from Settings).
+     */
+    @Volatile
+    private var adBlockEnabled: Boolean = true
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,7 +106,19 @@ class MainActivity : AppCompatActivity() {
             WebViewCompat.addDocumentStartJavaScript(webView, FeedScript.SCRIPT, setOf("*"))
         }
 
+        adBlockEnabled = Prefs(this).blockAds
+
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                if (adBlockEnabled && AdBlocker.shouldBlock(request.url.toString())) {
+                    return AdBlocker.blockedResponse()
+                }
+                return null
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 if (url.startsWith("http://") || url.startsWith("https://")) {
                     return false
@@ -172,6 +195,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        adBlockEnabled = Prefs(this).blockAds
         // Picks up a filter toggle change made in Settings without a full reload.
         webView.evaluateJavascript(
             "window.__mytubeApplyFilter && window.__mytubeApplyFilter();",

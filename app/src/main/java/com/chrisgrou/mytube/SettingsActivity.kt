@@ -25,6 +25,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var prefs: Prefs
     private lateinit var switchFilter: SwitchMaterial
+    private lateinit var switchBlockAds: SwitchMaterial
     private lateinit var textCurrentVersion: TextView
     private lateinit var buttonCheckUpdates: Button
     private lateinit var textUpdateStatus: TextView
@@ -40,6 +41,7 @@ class SettingsActivity : AppCompatActivity() {
 
         prefs = Prefs(this)
         switchFilter = findViewById(R.id.switchFilterImagePosts)
+        switchBlockAds = findViewById(R.id.switchBlockAds)
         textCurrentVersion = findViewById(R.id.textCurrentVersion)
         buttonCheckUpdates = findViewById(R.id.buttonCheckUpdates)
         textUpdateStatus = findViewById(R.id.textUpdateStatus)
@@ -50,6 +52,11 @@ class SettingsActivity : AppCompatActivity() {
         switchFilter.isChecked = prefs.hideImagePosts
         switchFilter.setOnCheckedChangeListener { _, isChecked ->
             prefs.hideImagePosts = isChecked
+        }
+
+        switchBlockAds.isChecked = prefs.blockAds
+        switchBlockAds.setOnCheckedChangeListener { _, isChecked ->
+            prefs.blockAds = isChecked
         }
 
         textCurrentVersion.text = getString(
