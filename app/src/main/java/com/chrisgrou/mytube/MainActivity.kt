@@ -38,6 +38,8 @@ import androidx.webkit.WebViewFeature
 import kotlin.math.roundToInt
 
 private const val HOME_URL = "https://m.youtube.com/"
+/** Path of YouTube's own Settings page (confirmed from a captured page snapshot). */
+private const val SETTINGS_PAGE_PATH = "/select_site"
 private const val DESKTOP_LIKE_MOBILE_UA =
     "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
         "Chrome/126.0.0.0 Mobile Safari/537.36"
@@ -50,6 +52,7 @@ class MainActivity : AppCompatActivity() {
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var fullscreenContainer: PlayerGestureLayout? = null
+    private lateinit var buttonSettings: ImageButton
 
     /**
      * Stream volume is coarse (typically 0..15), so a small drag would round to
@@ -84,7 +87,8 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
         swipeRefresh = findViewById(R.id.swipeRefresh)
-        val buttonSettings = findViewById<ImageButton>(R.id.buttonSettings)
+        buttonSettings = findViewById(R.id.buttonSettings)
+        buttonSettings.visibility = View.GONE
         buttonSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -169,6 +173,15 @@ class MainActivity : AppCompatActivity() {
                 view.evaluateJavascript(FeedScript.SCRIPT, null)
                 swipeRefresh.isRefreshing = false
                 swipeRefresh.isEnabled = true
+                updateSettingsButtonVisibility(url)
+            }
+
+            // YouTube navigates to its own Settings page (and elsewhere) mostly via
+            // pushState rather than a full page load, so onPageFinished alone
+            // misses it — this fires on both kinds of navigation.
+            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                super.doUpdateVisitedHistory(view, url, isReload)
+                updateSettingsButtonVisibility(url)
             }
         }
 
@@ -205,6 +218,19 @@ class MainActivity : AppCompatActivity() {
         } else {
             webView.loadUrl(HOME_URL)
         }
+    }
+
+    /**
+     * Only shown on YouTube's own Settings page — elsewhere it would just be
+     * another floating button competing with the feed. Driven purely by the
+     * WebView's current URL, so it doesn't depend on anything about the page's
+     * DOM (unlike three earlier, all failed, attempts to inject a row into that
+     * page — see FeedScript.kt's git history).
+     */
+    private fun updateSettingsButtonVisibility(url: String?) {
+        val path = url?.let { Uri.parse(it).path }
+        buttonSettings.visibility =
+            if (path == SETTINGS_PAGE_PATH) View.VISIBLE else View.GONE
     }
 
     private fun setUpEdgeToEdge() {

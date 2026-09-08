@@ -76,6 +76,14 @@ bottom tab bar). Αυτή η θέση δεν έχει ποτέ ανταγωνι�
 "ενοχλεί" όπως η πρώτη προσπάθεια, αλλά είναι 100% αξιόπιστο επειδή δεν εξαρτάται καθόλου
 από το DOM/markup της σελίδας — μόνο native Android view πάνω από το WebView.
 
+**Εμφανίζεται μόνο στη σελίδα Ρυθμίσεων** (`m.youtube.com/select_site`, επιβεβαιωμένο URL
+από captured .mht), όχι παντού — γίνεται καθαρά native, χωρίς JS: το `WebViewClient`
+παρακολουθεί το URL του WebView (`onPageFinished` για πλήρες load, `doUpdateVisitedHistory`
+για SPA pushState navigation — το YouTube πηγαίνει στο Settings κυρίως έτσι, όχι με πλήρες
+reload) και δείχνει/κρύβει το κουμπί ανάλογα (`updateSettingsButtonVisibility` στο
+`MainActivity.kt`). Καθόλου εξάρτηση από DOM αυτή τη φορά — μόνο το URL, που είναι σταθερό
+και γνωστό.
+
 ### 4. Update μηχανισμός (GitHub Releases) — ίδιο pattern με `thrylos-news` / `no-algo-fb`
 Αντί για semver tags, χρησιμοποιείται το ίδιο μοτίβο με τα άλλα δύο projects του χρήστη:
 ένα **σταθερό tag `latest`** που το CI αντικαθιστά σε κάθε push, και ένα versionCode που
