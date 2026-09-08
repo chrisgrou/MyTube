@@ -3,14 +3,15 @@ package com.chrisgrou.mytube
 /**
  * JavaScript injected into m.youtube.com. It does two independent things:
  *
- * 1. Adds a "MyTube" row into YouTube's own Settings page (reached via the
- *    account avatar > Settings), styled to match the existing rows (General,
- *    History & privacy, ...), so opening our Settings doesn't need a floating
- *    button sitting on top of YouTube's UI. Confirmed against a real captured
- *    DOM of that page (Sept 2026): each row is an
- *    `ytm-setting-generic-category` inside
- *    `ytm-setting-category-collection-renderer`; ours is appended there,
- *    guarded by an id so it isn't duplicated on re-render.
+ * 1. Adds a "MyTube" row at the bottom of YouTube's own Settings page (reached
+ *    via the account avatar > Settings), so opening our Settings doesn't need a
+ *    floating button sitting on top of YouTube's UI. It's appended as a plain,
+ *    independently-styled block right after `<ytm-settings>` inside its parent
+ *    `.page-container` — NOT nested inside any of YouTube's own custom elements
+ *    (`ytm-setting-generic-category` etc.), because those are web components
+ *    with their own shadow-DOM render template that silently ignores/replaces
+ *    light-DOM children handed to them; a first attempt building a row out of
+ *    that exact tag never rendered anything for precisely that reason.
  *
  * 2. Hides community "posts" that show images instead of a video — never touches
  *    normal video items (`ytm-rich-item-renderer`) or the Shorts shelf, since
@@ -68,27 +69,25 @@ object FeedScript {
 
   function ensureSettingsMenuItem() {
     if (document.getElementById('mytube-settings-row')) return;
-    var collection = document.querySelector('ytm-setting-category-collection-renderer');
-    if (!collection) return;
+    var settings = document.querySelector('ytm-settings');
+    if (!settings || !settings.parentElement) return;
 
-    var row = document.createElement('ytm-setting-generic-category');
+    var row = document.createElement('div');
     row.id = 'mytube-settings-row';
-    row.className = 'cairo-settings';
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    row.style.cssText = 'display:flex;align-items:center;gap:24px;padding:16px;' +
+      'cursor:pointer;color:#fff;font-family:Roboto,Arial,sans-serif;' +
+      'border-top:1px solid rgba(255,255,255,0.2);';
     row.innerHTML =
-      '<div role="button" tabindex="0" class="setting-generic-category-title">' +
-        '<div class="setting-generic-category-block">' +
-          '<div class="setting-generic-category-icon">' + COG_SVG + '</div>' +
-          '<div class="setting-generic-category-title-block cairo-settings">' +
-            '<div class="title-text"><span class="ytAttributedStringHost" role="text">MyTube</span></div>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    row.querySelector('[role="button"]').addEventListener('click', function(e) {
+      '<span style="display:flex;flex-shrink:0;">' + COG_SVG + '</span>' +
+      '<span style="font-size:14px;">MyTube</span>';
+    row.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
       try { window.MyTubeNative.openSettings(); } catch (err) {}
     });
-    collection.appendChild(row);
+    settings.parentElement.appendChild(row);
   }
 
   function tick() {
