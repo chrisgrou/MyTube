@@ -52,21 +52,29 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
   `yt-navigate-finish` γιατί το m.youtube.com είναι SPA (δεν γίνεται πλήρες page load σε
   κάθε πλοήγηση μέσα στην εφαρμογή).
 
-### 3. Πρόσβαση στις Ρυθμίσεις: menu item μέσα στο Settings του YouTube
-- Αρχικά δοκιμάστηκε floating cog button πάνω στη σελίδα (είτε "ενσωματωμένο" δίπλα στο
-  λογότυπο, είτε floating fallback) — αλλά επικάλυπτε/ενοχλούσε το UI του YouTube (π.χ.
-  πάνω στο δικό του search/menu εικονίδιο), οπότε αφαιρέθηκε εντελώς.
-- Αντ' αυτού, το injected script (`ensureSettingsMenuItem` στο `FeedScript.kt`) προσθέτει
-  μια γραμμή **"MyTube"** μέσα στη δική της σελίδα Ρυθμίσεων του YouTube
-  (`m.youtube.com/select_site`, προσβάσιμη μέσω avatar → Settings), δίπλα σε γραμμές όπως
-  "General", "History & privacy" κ.λπ. Στοχεύει το πραγματικό container
-  `ytm-setting-category-collection-renderer` και προσθέτει ένα `ytm-setting-generic-category`
-  με το ίδιο styling/classes ώστε να ταιριάζει οπτικά — επιβεβαιωμένο πάνω σε πραγματικό
-  captured DOM αυτής της σελίδας.
-- Το κλικ καλεί `window.MyTubeNative.openSettings()` → JavascriptInterface
-  (`WebAppInterface.kt`) → ανοίγει native `SettingsActivity`.
-- Καμία native επικάλυψη (button) πάνω στο WebView πλέον — πιο "καθαρό" UI, αλλά η
-  πρόσβαση περνάει πάντα μέσα από το μενού Ρυθμίσεων του ίδιου του YouTube.
+### 3. Πρόσβαση στις Ρυθμίσεις: native κουμπί, μέση-δεξιά της οθόνης
+Ιστορικό αποτυχιών, με τη σειρά:
+1. Cog "ενσωματωμένο" δίπλα στο λογότυπο του YouTube header (injected JS) — δεν
+   βρισκόταν ποτέ το header markup.
+2. Floating κουμπί πάνω-δεξιά (native ImageButton) — δούλευε, αλλά ο χρήστης το βρήκε
+   ενοχλητικό: επικάλυπτε τα δικά του εικονίδια (search/avatar) στο header.
+3. Injected "MyTube" row μέσα στη σελίδα Ρυθμίσεων του YouTube (`ytm-settings`,
+   προσβάσιμη μέσω avatar → Settings) — δοκιμάστηκε **τρεις** φορές με διαφορετική
+   τεχνική κάθε φορά (μέσα σε custom element `ytm-setting-generic-category`· μετά σαν
+   απλό `<div>` sibling του `<ytm-settings>`· μετά `position:fixed` κολλημένο στο
+   `document.body` με μέγιστο z-index) — και οι τρεις επιβεβαιώθηκαν να δουλεύουν πάνω
+   σε captured DOM (.mht) απ' τον χρήστη, αλλά **καμία δεν εμφανίστηκε ποτέ στην
+   πραγματική συσκευή**. Πιθανό αίτιο: το πραγματικό DOM στη συσκευή διαφέρει από αυτό
+   που δείχνει ένα desktop-captured .mht (πιθανόν διαφορετικό A/B variant ή markup
+   έκδοση), αλλά δεν υπήρχε τρόπος να το επιβεβαιώσουμε χωρίς live devtools access στη
+   συσκευή. Ο κώδικας αφαιρέθηκε εντελώς (ήταν dead code).
+
+**Τελική λύση**: native `ImageButton` (`buttonSettings` στο `activity_main.xml`), μικρό
+(36dp) και ημιδιάφανο (`alpha=0.55`), τοποθετημένο `center_vertical|end` — στη μέση του
+δεξιού άκρου της οθόνης, όχι πάνω/κάτω όπου βρίσκεται μόνιμο UI του YouTube (header,
+bottom tab bar). Αυτή η θέση δεν έχει ποτέ ανταγωνιστικό στοιχείο του YouTube, οπότε δεν
+"ενοχλεί" όπως η πρώτη προσπάθεια, αλλά είναι 100% αξιόπιστο επειδή δεν εξαρτάται καθόλου
+από το DOM/markup της σελίδας — μόνο native Android view πάνω από το WebView.
 
 ### 4. Update μηχανισμός (GitHub Releases) — ίδιο pattern με `thrylos-news` / `no-algo-fb`
 Αντί για semver tags, χρησιμοποιείται το ίδιο μοτίβο με τα άλλα δύο projects του χρήστη:

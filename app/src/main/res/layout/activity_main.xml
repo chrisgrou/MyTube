@@ -27,4 +27,24 @@
         android:max="100"
         android:progressTint="@color/youtube_red" />
 
+    <!-- Native, always-reachable entry point to Settings. A JS-injected row on
+         YouTube's own Settings page repeatedly failed to render on-device across
+         several attempts (see FeedScript.kt's history) despite matching a
+         captured DOM snapshot every time, so this is the reliable fallback: a
+         small, semi-transparent button that doesn't depend on YouTube's markup
+         at all. Placed on the right edge, vertically centered — YouTube's own
+         UI only ever occupies the very top (header) and very bottom (tab bar)
+         of this screen, so this spot never collides with it. -->
+    <ImageButton
+        android:id="@+id/buttonSettings"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="center_vertical|end"
+        android:layout_marginEnd="6dp"
+        android:alpha="0.55"
+        android:background="@drawable/bg_settings_button"
+        android:contentDescription="@string/settings_title"
+        android:padding="7dp"
+        android:src="@drawable/ic_settings" />
+
 </FrameLayout>

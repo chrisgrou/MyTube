@@ -3,29 +3,20 @@ package com.chrisgrou.mytube
 /**
  * JavaScript injected into m.youtube.com. It does two independent things:
  *
- * 1. Adds a "MyTube" bar at the bottom of YouTube's own Settings page (reached
- *    via the account avatar > Settings), so opening our Settings doesn't need a
- *    floating button sitting on top of YouTube's UI on every page.
- *    Two earlier attempts at this failed on-device despite looking correct
- *    against a captured DOM snapshot: appending as a `ytm-setting-generic-category`
- *    inside `ytm-setting-category-collection-renderer` (that's a web component
- *    with its own shadow-DOM template that ignores light-DOM children), then
- *    appending a plain `<div>` as a document-flow sibling of `<ytm-settings>`
- *    (still invisible — likely some ancestor's overflow/height clips content
- *    added after it, impossible to tell without live devtools access). Neither
- *    depends-on-page-layout approach held up, so this one uses `position: fixed`
- *    instead: it renders relative to the viewport, escaping whatever the
- *    surrounding layout is doing, and is shown only while `ytm-settings` exists
- *    in the DOM so it doesn't sit on top of the feed like the very first attempt.
+ * (Getting to Settings used to be attempted here too — three different ways of
+ * injecting a "MyTube" row/bar into the page, all confirmed working against a
+ * captured DOM snapshot, none of them rendering anything on the real device.
+ * Given up on: MainActivity now has a plain native button instead, which
+ * doesn't depend on YouTube's markup at all.)
  *
- * 2. Blocks ads, in the two ways request-level blocking (AdBlocker.kt) can't:
+ * 1. Blocks ads, in the two ways request-level blocking (AdBlocker.kt) can't:
  *    strips the ad fields out of the /youtubei/v1/player response before
  *    YouTube's own code reads it (that's what removes pre-roll/mid-roll ads,
  *    whose media comes from the same hosts as real video), and hides sponsored
  *    items in the feed. The player patching depends on this script running at
  *    document-start, before any page script.
  *
- * 3. Hides community "posts" that show images instead of a video — never touches
+ * 2. Hides community "posts" that show images instead of a video — never touches
  *    normal video items (`ytm-rich-item-renderer`) or the Shorts shelf, since
  *    those use different element tags. Confirmed against a real captured DOM
  *    (m.youtube.com, Sept 2026): a community post is
@@ -193,49 +184,7 @@ object FeedScript {
     }
   }
 
-  var COG_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">' +
-    '<path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 ' +
-    'l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 ' +
-    'h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 ' +
-    'C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.04,0.64,0.09,0.94l-2.03,1.58 ' +
-    'c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 ' +
-    'c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 ' +
-    'c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 ' +
-    's1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
-
-  function ensureSettingsMenuItem() {
-    var onSettingsPage = !!document.querySelector('ytm-settings');
-    var existing = document.getElementById('mytube-settings-row');
-
-    if (!onSettingsPage) {
-      if (existing) existing.remove();
-      return;
-    }
-    if (existing) return;
-    if (!document.body) return;
-
-    var row = document.createElement('div');
-    row.id = 'mytube-settings-row';
-    row.setAttribute('role', 'button');
-    row.tabIndex = 0;
-    row.style.cssText = 'position:fixed;left:0;right:0;bottom:0;' +
-      'display:flex;align-items:center;gap:24px;padding:16px;' +
-      'padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));' +
-      'background:#0f0f0f;cursor:pointer;color:#fff;font-family:Roboto,Arial,sans-serif;' +
-      'border-top:1px solid rgba(255,255,255,0.2);z-index:2147483647;';
-    row.innerHTML =
-      '<span style="display:flex;flex-shrink:0;">' + COG_SVG + '</span>' +
-      '<span style="font-size:14px;">MyTube</span>';
-    row.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      try { window.MyTubeNative.openSettings(); } catch (err) {}
-    });
-    document.body.appendChild(row);
-  }
-
   function tick() {
-    try { ensureSettingsMenuItem(); } catch (e) { console.error('MyTube ensureSettingsMenuItem failed', e); }
     try { applyFilter(); } catch (e) { console.error('MyTube applyFilter failed', e); }
     try { hideAds(); } catch (e) { console.error('MyTube hideAds failed', e); }
     try { skipVideoAd(); } catch (e) { console.error('MyTube skipVideoAd failed', e); }
