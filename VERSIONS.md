@@ -40,3 +40,13 @@
   μπλοκάρισμα ad/tracker domains σε επίπεδο request (όπως ο Brave), αφαίρεση των in-stream
   διαφημίσεων (pre-roll/mid-roll) από το player response πριν το διαβάσει το YouTube, και
   απόκρυψη sponsored αποτελεσμάτων στο feed.
+
+## v1.4.0 — fullscreen playback
+- Το fullscreen είναι πλέον πραγματικά fullscreen: κρύβονται status/navigation bar
+  (επανέρχονται με swipe).
+- Η οθόνη δεν σβήνει πια κατά την αναπαραγωγή (keep-screen-on όσο παίζει βίντεο — ένα
+  WebView δεν το κάνει μόνο του όπως ο browser).
+- Αυτόματη περιστροφή σε landscape όταν μπαίνεις σε fullscreen, επαναφορά στην έξοδο.
+- Swipe gestures στο fullscreen: αριστερά φωτεινότητα, δεξιά ένταση ήχου, με ένδειξη
+  ποσοστού. Τα taps/horizontal drags περνούν κανονικά στον player.
+- Το back button βγάζει πρώτα από το fullscreen αντί να κλείνει την εφαρμογή.

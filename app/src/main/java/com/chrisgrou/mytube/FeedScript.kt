@@ -263,6 +263,19 @@ object FeedScript {
     setPullToRefreshAllowed(true);
   }, { capture: true, passive: true });
 
+  // A WebView doesn't keep the screen awake during playback the way a browser
+  // does, so the display dims and eventually sleeps mid-video. Report playback
+  // state and let native hold FLAG_KEEP_SCREEN_ON only while something plays.
+  // Media events don't bubble, so these listen in the capture phase — that still
+  // reaches document, and it covers <video> elements created later.
+  function reportVideoPlaying(playing) {
+    try { window.MyTubeNative.setVideoPlaying(playing); } catch (e) {}
+  }
+  document.addEventListener('playing', function() { reportVideoPlaying(true); }, true);
+  document.addEventListener('play', function() { reportVideoPlaying(true); }, true);
+  document.addEventListener('pause', function() { reportVideoPlaying(false); }, true);
+  document.addEventListener('ended', function() { reportVideoPlaying(false); }, true);
+
   var observer = new MutationObserver(function() { tick(); });
   function startObserving() {
     if (document.body) {

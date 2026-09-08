@@ -141,6 +141,28 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
 διαφημίσεις ή μήνυμα τύπου "ad blocker detected", το πιθανότερο είναι ότι άλλαξαν τα ονόματα
 των πεδίων/των selectors — ζήτα ένα .mht snapshot και ενημέρωσε το `FeedScript.kt`.
 
+### 6. Fullscreen playback
+- `onShowCustomView`/`onHideCustomView`: το player view μπαίνει σε ένα `PlayerGestureLayout`
+  (custom `FrameLayout`) πάνω στο decor view, κρύβονται τα system bars (immersive, με
+  `BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`) και η οθόνη γυρίζει σε
+  `SCREEN_ORIENTATION_SENSOR_LANDSCAPE`. Στην έξοδο επανέρχονται όλα.
+  - Δουλεύει χωρίς recreation της Activity επειδή το Manifest έχει ήδη
+    `configChanges="orientation|screenSize|..."`.
+- **Gestures**: το `PlayerGestureLayout` κάνει intercept **μόνο** κάθετα drags πέρα από το
+  touch slop (και μόνο όταν το |dy| υπερτερεί σαφώς του |dx|) — έτσι taps (play/pause,
+  εμφάνιση controls) και οριζόντια drags (seek) φτάνουν κανονικά στον player από κάτω.
+  Αριστερό μισό = φωτεινότητα (`window.attributes.screenBrightness`), δεξί = ένταση
+  (`AudioManager`, με flag 0 ώστε να μη βγαίνει το system volume UI — δείχνουμε δικό μας).
+  - Η ένταση συσσωρεύεται ως float μέσα στο gesture, γιατί το stream volume είναι πολύ
+    χοντρικό (0..15) και αλλιώς μικρά drags στρογγυλοποιούνται στο τίποτα.
+  - Η φωτεινότητα επιστρέφει στο system default (`BRIGHTNESS_OVERRIDE_NONE`) στην έξοδο.
+- **Keep screen on**: ένα WebView δεν κρατάει την οθόνη ξύπνια όπως ο browser, οπότε η οθόνη
+  σκοτείνιαζε στη μέση του βίντεο. Το injected script ακούει `play`/`playing`/`pause`/`ended`
+  **σε capture phase** (τα media events δεν κάνουν bubble) και το native βάζει/βγάζει
+  `FLAG_KEEP_SCREEN_ON`. Καλύπτει και inline και fullscreen αναπαραγωγή.
+- Το back button βγάζει πρώτα από fullscreen (`leaveFullscreenIfActive`) πριν πάει σε
+  `webView.goBack()` ή έξοδο από την εφαρμογή.
+
 ## Περιορισμός στο περιβάλλον όπου γράφτηκε ο κώδικας
 Το sandbox αυτής της συνεδρίας **δεν έχει πρόσβαση σε `dl.google.com`** (Google's Maven
 repository), το proxy το μπλοκάρει σκόπιμα (403). Το Android Gradle Plugin (AGP) βρίσκεται

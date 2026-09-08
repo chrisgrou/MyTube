@@ -12,11 +12,13 @@ import android.webkit.JavascriptInterface
  * screen from the injected cog button, and a hook the page uses to tell native
  * code when a touch gesture starts inside one of its own nested scrollable
  * regions (a bottom sheet, a comments panel, ...) so SwipeRefreshLayout's pull
- * gesture doesn't fight with scrolling that content.
+ * gesture doesn't fight with scrolling that content, plus a report of whether a
+ * video is currently playing so the screen can be kept awake.
  */
 class WebAppInterface(
     private val context: Context,
     private val onSetPullToRefreshAllowed: (Boolean) -> Unit,
+    private val onVideoPlayingChanged: (Boolean) -> Unit,
 ) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -43,5 +45,10 @@ class WebAppInterface(
         // JavascriptInterface methods run on a background thread; SwipeRefreshLayout
         // must only be touched from the UI thread.
         mainHandler.post { onSetPullToRefreshAllowed(allowed) }
+    }
+
+    @JavascriptInterface
+    fun setVideoPlaying(playing: Boolean) {
+        mainHandler.post { onVideoPlayingChanged(playing) }
     }
 }
