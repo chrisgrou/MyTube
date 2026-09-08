@@ -30,6 +30,9 @@ object UpdateChecker {
         val request = Request.Builder()
             .url("https://api.github.com/repos/$repo/releases/tags/latest")
             .header("Accept", "application/vnd.github+json")
+            // GitHub's API rejects requests with no User-Agent with a 403 — this
+            // isn't a permissions/visibility issue, it's just a required header.
+            .header("User-Agent", "MyTube-Android-App")
             .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) error("HTTP ${response.code} από το GitHub")
