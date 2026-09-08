@@ -58,6 +58,13 @@ class MainActivity : AppCompatActivity() {
     private var pendingVolume: Float? = null
 
     /**
+     * Shape of the most recently played video, reported from the page. Decides
+     * which way fullscreen rotates; null until a video reports its dimensions,
+     * in which case landscape is assumed (the common case).
+     */
+    private var lastVideoIsPortrait: Boolean? = null
+
+    /**
      * Read by shouldInterceptRequest, which the WebView calls on a background
      * thread for every single request — far too hot to hit SharedPreferences in,
      * so the preference is mirrored here and refreshed in onResume (i.e. after
@@ -113,6 +120,7 @@ class MainActivity : AppCompatActivity() {
                 context = this,
                 onSetPullToRefreshAllowed = { allowed -> swipeRefresh.isEnabled = allowed },
                 onVideoPlayingChanged = { playing -> keepScreenOn(playing) },
+                onVideoAspectChanged = { isPortrait -> lastVideoIsPortrait = isPortrait },
             ),
             "MyTubeNative"
         )
@@ -259,7 +267,29 @@ class MainActivity : AppCompatActivity() {
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+
+        // Rotate immediately from the last reported shape so there's no visible
+        // flip, then confirm against the DOM in case the cached value came from
+        // a different video (an autoplaying feed preview, say) and correct it.
+        applyFullscreenOrientation(lastVideoIsPortrait)
+        webView.evaluateJavascript(
+            "window.__mytubeVideoIsPortrait && window.__mytubeVideoIsPortrait()"
+        ) { result ->
+            if (customView == null) return@evaluateJavascript
+            when (result) {
+                "true" -> applyFullscreenOrientation(true)
+                "false" -> applyFullscreenOrientation(false)
+            }
+        }
+    }
+
+    /** Portrait videos (and Shorts) stay portrait; everything else goes landscape. */
+    private fun applyFullscreenOrientation(isPortrait: Boolean?) {
+        requestedOrientation = if (isPortrait == true) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
     }
 
     /**

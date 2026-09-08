@@ -276,6 +276,36 @@ object FeedScript {
   document.addEventListener('pause', function() { reportVideoPlaying(false); }, true);
   document.addEventListener('ended', function() { reportVideoPlaying(false); }, true);
 
+  // Report the video's shape so native only forces landscape on entering
+  // fullscreen when the video is actually landscape — a portrait video (or a
+  // Short) has to stay portrait.
+  function reportVideoAspect(video) {
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+    try { window.MyTubeNative.setVideoAspect(video.videoWidth, video.videoHeight); } catch (e) {}
+  }
+  document.addEventListener('loadedmetadata', function(e) { reportVideoAspect(e.target); }, true);
+  document.addEventListener('playing', function(e) { reportVideoAspect(e.target); }, true);
+  document.addEventListener('resize', function(e) { reportVideoAspect(e.target); }, true);
+
+  // Queried by native right after fullscreen starts, to confirm the reported
+  // shape belonged to the video actually being watched. Prefers a video that is
+  // playing, then the largest one; returns null if nothing has dimensions yet.
+  window.__mytubeVideoIsPortrait = function() {
+    var videos = document.querySelectorAll('video');
+    var best = null;
+    for (var i = 0; i < videos.length; i++) {
+      var v = videos[i];
+      if (!v.videoWidth || !v.videoHeight) continue;
+      if (best === null) { best = v; continue; }
+      var betterState = !v.paused && best.paused;
+      var worseState = v.paused && !best.paused;
+      var bigger = (v.videoWidth * v.videoHeight) > (best.videoWidth * best.videoHeight);
+      if (betterState || (!worseState && bigger)) best = v;
+    }
+    if (!best) return null;
+    return best.videoHeight > best.videoWidth;
+  };
+
   var observer = new MutationObserver(function() { tick(); });
   function startObserving() {
     if (document.body) {

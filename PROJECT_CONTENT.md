@@ -144,8 +144,14 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
 ### 6. Fullscreen playback
 - `onShowCustomView`/`onHideCustomView`: το player view μπαίνει σε ένα `PlayerGestureLayout`
   (custom `FrameLayout`) πάνω στο decor view, κρύβονται τα system bars (immersive, με
-  `BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`) και η οθόνη γυρίζει σε
-  `SCREEN_ORIENTATION_SENSOR_LANDSCAPE`. Στην έξοδο επανέρχονται όλα.
+  `BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`) και η οθόνη γυρίζει ανάλογα με το **σχήμα του
+  βίντεο**: `SENSOR_LANDSCAPE` για κανονικά, `SENSOR_PORTRAIT` για κάθετα/Shorts (αλλιώς
+  ένα κάθετο βίντεο θα γύριζε άσκοπα στο πλάι). Στην έξοδο επανέρχονται όλα.
+  - Το σχήμα το αναφέρει το injected script (`loadedmetadata`/`playing`/`resize`) και
+    εφαρμόζεται αμέσως από την τελευταία τιμή ώστε να μη φαίνεται flip· αμέσως μετά γίνεται
+    επιβεβαίωση με `evaluateJavascript` (`window.__mytubeVideoIsPortrait`) γιατί η
+    cached τιμή μπορεί να προήλθε από άλλο video της σελίδας (π.χ. autoplay preview στο
+    feed). Η επιλογή προτιμά βίντεο που παίζει, μετά το μεγαλύτερο.
   - Δουλεύει χωρίς recreation της Activity επειδή το Manifest έχει ήδη
     `configChanges="orientation|screenSize|..."`.
 - **Gestures**: το `PlayerGestureLayout` κάνει intercept **μόνο** κάθετα drags πέρα από το

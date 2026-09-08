@@ -19,6 +19,7 @@ class WebAppInterface(
     private val context: Context,
     private val onSetPullToRefreshAllowed: (Boolean) -> Unit,
     private val onVideoPlayingChanged: (Boolean) -> Unit,
+    private val onVideoAspectChanged: (isPortrait: Boolean) -> Unit,
 ) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -50,5 +51,11 @@ class WebAppInterface(
     @JavascriptInterface
     fun setVideoPlaying(playing: Boolean) {
         mainHandler.post { onVideoPlayingChanged(playing) }
+    }
+
+    @JavascriptInterface
+    fun setVideoAspect(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        mainHandler.post { onVideoAspectChanged(height > width) }
     }
 }
