@@ -19,16 +19,23 @@ object UpdateChecker {
 
     private val client = OkHttpClient()
 
+    /**
+     * Returns the newer [UpdateInfo], or null if [currentVersionCode] is already
+     * current. Throws (rather than returning null) on any failure to reach GitHub
+     * or parse the release — e.g. a 404 because the repo is still private — so
+     * the caller can tell "check failed" apart from "already up to date" instead
+     * of both looking identical to the user.
+     */
     suspend fun checkForUpdate(repo: String, currentVersionCode: Int): UpdateInfo? = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url("https://api.github.com/repos/$repo/releases/tags/latest")
             .header("Accept", "application/vnd.github+json")
             .build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return@withContext null
+            if (!response.isSuccessful) error("HTTP ${response.code} από το GitHub")
             val json = JSONObject(response.body?.string().orEmpty())
-            val assets = json.optJSONArray("assets") ?: return@withContext null
-            if (assets.length() == 0) return@withContext null
+            val assets = json.optJSONArray("assets")
+            if (assets == null || assets.length() == 0) error("Το release 'latest' δεν έχει APK asset")
             val asset = assets.getJSONObject(0)
             val remoteVersionCode = Regex("(\\d+)").find(asset.optString("name")).let { it?.value?.toIntOrNull() }
                 ?: return@withContext null

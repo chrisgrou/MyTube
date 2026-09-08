@@ -70,17 +70,21 @@ class SettingsActivity : AppCompatActivity() {
         textUpdateStatus.text = getString(R.string.checking_updates)
 
         lifecycleScope.launch {
-            val update = runCatching {
+            val result = runCatching {
                 UpdateChecker.checkForUpdate(BuildConfig.GITHUB_REPO, BuildConfig.VERSION_CODE)
-            }.getOrNull()
+            }
 
-            if (update != null) {
-                pendingUpdate = update
-                val notes = update.releaseNotes?.let { "\n\n$it" } ?: ""
-                textUpdateStatus.text = getString(R.string.update_available, update.versionCode.toString()) + notes
-                buttonDownloadInstall.visibility = View.VISIBLE
-            } else {
-                textUpdateStatus.text = getString(R.string.up_to_date)
+            result.onSuccess { update ->
+                if (update != null) {
+                    pendingUpdate = update
+                    val notes = update.releaseNotes?.let { "\n\n$it" } ?: ""
+                    textUpdateStatus.text = getString(R.string.update_available, update.versionCode.toString()) + notes
+                    buttonDownloadInstall.visibility = View.VISIBLE
+                } else {
+                    textUpdateStatus.text = getString(R.string.up_to_date)
+                }
+            }.onFailure { error ->
+                textUpdateStatus.text = getString(R.string.update_check_failed, error.message)
             }
             buttonCheckUpdates.isEnabled = true
         }

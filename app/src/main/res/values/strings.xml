@@ -15,6 +15,7 @@
     <string name="download_install">Λήψη &amp; εγκατάσταση</string>
     <string name="downloading_update">Γίνεται λήψη της ενημέρωσης…</string>
     <string name="install_permission_needed">Χρειάζεται άδεια εγκατάστασης από άγνωστες πηγές.</string>
+    <string name="update_check_failed">Ο έλεγχος ενημερώσεων απέτυχε: %1$s</string>
 
     <string name="section_history">Ιστορικό ενημερώσεων</string>
     <string name="history_empty">Δεν υπάρχει ακόμα ιστορικό ενημερώσεων σε αυτή τη συσκευή.</string>
