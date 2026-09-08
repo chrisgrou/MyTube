@@ -51,17 +51,21 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
   `yt-navigate-finish` γιατί το m.youtube.com είναι SPA (δεν γίνεται πλήρες page load σε
   κάθε πλοήγηση μέσα στην εφαρμογή).
 
-### 3. Cog icon στο header
-- Το ίδιο injected script (`ensureCogButton`) προσπαθεί να βρει το λογότυπο του YouTube
-  στο mobile header και να βάλει το κουμπί ⚙ αμέσως μετά, ώστε να φαίνεται "native".
-- **Fallback**: αν δεν βρεθεί το markup του header (π.χ. άλλαξε το YouTube), το κουμπί
-  εμφανίζεται σαν floating button πάνω-αριστερά (ίδια οπτική θέση), ώστε να μην χαθεί ποτέ
-  η πρόσβαση στις Ρυθμίσεις.
+### 3. Πρόσβαση στις Ρυθμίσεις: menu item μέσα στο Settings του YouTube
+- Αρχικά δοκιμάστηκε floating cog button πάνω στη σελίδα (είτε "ενσωματωμένο" δίπλα στο
+  λογότυπο, είτε floating fallback) — αλλά επικάλυπτε/ενοχλούσε το UI του YouTube (π.χ.
+  πάνω στο δικό του search/menu εικονίδιο), οπότε αφαιρέθηκε εντελώς.
+- Αντ' αυτού, το injected script (`ensureSettingsMenuItem` στο `FeedScript.kt`) προσθέτει
+  μια γραμμή **"MyTube"** μέσα στη δική της σελίδα Ρυθμίσεων του YouTube
+  (`m.youtube.com/select_site`, προσβάσιμη μέσω avatar → Settings), δίπλα σε γραμμές όπως
+  "General", "History & privacy" κ.λπ. Στοχεύει το πραγματικό container
+  `ytm-setting-category-collection-renderer` και προσθέτει ένα `ytm-setting-generic-category`
+  με το ίδιο styling/classes ώστε να ταιριάζει οπτικά — επιβεβαιωμένο πάνω σε πραγματικό
+  captured DOM αυτής της σελίδας.
 - Το κλικ καλεί `window.MyTubeNative.openSettings()` → JavascriptInterface
   (`WebAppInterface.kt`) → ανοίγει native `SettingsActivity`.
-- ⚠️ Δεν έχει γίνει live test πάνω στο πραγματικό DOM του m.youtube.com (δεν υπάρχει
-  πρόσβαση internet προς youtube.com μέσα στο περιβάλλον όπου γράφτηκε ο κώδικας). Θέλει
-  οπτικό έλεγχο σε πραγματική συσκευή/emulator και πιθανή μικρορύθμιση των selectors/θέσης.
+- Καμία native επικάλυψη (button) πάνω στο WebView πλέον — πιο "καθαρό" UI, αλλά η
+  πρόσβαση περνάει πάντα μέσα από το μενού Ρυθμίσεων του ίδιου του YouTube.
 
 ### 4. Update μηχανισμός (GitHub Releases) — ίδιο pattern με `thrylos-news` / `no-algo-fb`
 Αντί για semver tags, χρησιμοποιείται το ίδιο μοτίβο με τα άλλα δύο projects του χρήστη:
@@ -118,7 +122,7 @@ app/src/main/java/com/chrisgrou/mytube/
   MainActivity.kt          - WebView + edge-to-edge + injection hook
   SettingsActivity.kt      - Ρυθμίσεις (filter toggle, updates, ιστορικό)
   WebAppInterface.kt       - JavascriptInterface (window.MyTubeNative)
-  FeedScript.kt            - injected JS (filtering + cog button)
+  FeedScript.kt            - injected JS (filtering + Settings menu item)
   Prefs.kt                 - SharedPreferences wrapper
   MyTubeApp.kt             - Application, καταγραφή τοπικού ιστορικού version
   update/UpdateChecker.kt  - διαβάζει το release "latest" από το GitHub API
@@ -128,8 +132,13 @@ keystore/debug.keystore   - committed debug key (βλ. ενότητα 4 παρα
 ```
 
 ## Επόμενα βήματα / ιδέες (δεν έχουν υλοποιηθεί ακόμα)
-- Live testing σε πραγματική συσκευή/emulator για να επιβεβαιωθούν/διορθωθούν οι
-  selectors του header (cog button) και του feed filter.
 - Πιθανή προσθήκη badge/notification όταν υπάρχει νέα έκδοση (αν ποτέ αλλάξει η απόφαση
   από "μόνο χειροκίνητα" σε αυτόματο έλεγχο).
 - Πραγματικό release keystore αν χρειαστεί ποτέ πιο "σοβαρή" διανομή.
+
+## Debugging notes (χρήσιμο για το μέλλον)
+Αρκετά bugs μέχρι τώρα λύθηκαν επειδή ο χρήστης έστειλε **.mht snapshots** πραγματικών
+σελίδων του m.youtube.com (File → Save page as, ή share από τον browser). Αυτά περιέχουν
+το πλήρες HTML που βλέπει πραγματικά η συσκευή — πολύ πιο αξιόπιστο από το να μαντεύουμε
+selectors. Αν κάτι σχετικό με DOM/selectors "σπάσει" ξανά, το πρώτο πράγμα να ζητηθεί είναι
+ένα τέτοιο .mht από την οθόνη που έχει πρόβλημα.

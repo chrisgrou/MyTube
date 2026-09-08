@@ -3,12 +3,14 @@ package com.chrisgrou.mytube
 /**
  * JavaScript injected into m.youtube.com. It does two independent things:
  *
- * 1. Adds a settings (cog) button next to the YouTube logo in the header, styled
- *    to look like a native part of the page. If the exact header markup can't be
- *    found (YouTube changes its DOM often) it falls back to a floating button in
- *    the same visual spot. MainActivity also adds a native Android button as a
- *    guaranteed-visible fallback, since this injected one depends on matching
- *    YouTube's markup.
+ * 1. Adds a "MyTube" row into YouTube's own Settings page (reached via the
+ *    account avatar > Settings), styled to match the existing rows (General,
+ *    History & privacy, ...), so opening our Settings doesn't need a floating
+ *    button sitting on top of YouTube's UI. Confirmed against a real captured
+ *    DOM of that page (Sept 2026): each row is an
+ *    `ytm-setting-generic-category` inside
+ *    `ytm-setting-category-collection-renderer`; ours is appended there,
+ *    guarded by an id so it isn't duplicated on re-render.
  *
  * 2. Hides community "posts" that show images instead of a video — never touches
  *    normal video items (`ytm-rich-item-renderer`) or the Shorts shelf, since
@@ -54,7 +56,7 @@ object FeedScript {
     }
   }
 
-  var COG_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">' +
+  var COG_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">' +
     '<path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 ' +
     'l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 ' +
     'h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 ' +
@@ -64,52 +66,33 @@ object FeedScript {
     'c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 ' +
     's1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
 
-  function makeButton() {
-    var btn = document.createElement('button');
-    btn.id = 'mytube-settings-btn';
-    btn.setAttribute('aria-label', 'MyTube settings');
-    btn.innerHTML = COG_SVG;
-    btn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;' +
-      'width:36px;height:36px;margin-left:6px;border:none;border-radius:18px;' +
-      'background:transparent;color:inherit;cursor:pointer;padding:0;z-index:2147483647;';
-    btn.addEventListener('click', function(e) {
+  function ensureSettingsMenuItem() {
+    if (document.getElementById('mytube-settings-row')) return;
+    var collection = document.querySelector('ytm-setting-category-collection-renderer');
+    if (!collection) return;
+
+    var row = document.createElement('ytm-setting-generic-category');
+    row.id = 'mytube-settings-row';
+    row.className = 'cairo-settings';
+    row.innerHTML =
+      '<div role="button" tabindex="0" class="setting-generic-category-title">' +
+        '<div class="setting-generic-category-block">' +
+          '<div class="setting-generic-category-icon">' + COG_SVG + '</div>' +
+          '<div class="setting-generic-category-title-block cairo-settings">' +
+            '<div class="title-text"><span class="ytAttributedStringHost" role="text">MyTube</span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    row.querySelector('[role="button"]').addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
       try { window.MyTubeNative.openSettings(); } catch (err) {}
     });
-    return btn;
-  }
-
-  function ensureCogButton() {
-    if (document.getElementById('mytube-settings-btn')) return;
-
-    var logo = document.querySelector(
-      'ytm-mobile-topbar-renderer a.topbar-menu-button-avatar-button, ' +
-      'ytm-mobile-topbar-renderer .mobile-topbar-header-logo, ' +
-      '.mobile-topbar-header-logo, ' +
-      'ytm-mobile-topbar-renderer a[href="/"]'
-    );
-
-    if (logo && logo.parentElement) {
-      var btn = makeButton();
-      logo.insertAdjacentElement('afterend', btn);
-      return;
-    }
-
-    // Fallback: floating button pinned near where the logo normally sits,
-    // so Settings stays reachable even if YouTube's header markup changed.
-    if (!document.body) return;
-    var floating = makeButton();
-    floating.style.position = 'fixed';
-    floating.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)';
-    floating.style.left = '96px';
-    floating.style.background = 'rgba(15,15,15,0.55)';
-    floating.style.color = '#fff';
-    document.body.appendChild(floating);
+    collection.appendChild(row);
   }
 
   function tick() {
-    try { ensureCogButton(); } catch (e) { console.error('MyTube ensureCogButton failed', e); }
+    try { ensureSettingsMenuItem(); } catch (e) { console.error('MyTube ensureSettingsMenuItem failed', e); }
     try { applyFilter(); } catch (e) { console.error('MyTube applyFilter failed', e); }
   }
 
