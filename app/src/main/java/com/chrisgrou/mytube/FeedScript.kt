@@ -3,15 +3,20 @@ package com.chrisgrou.mytube
 /**
  * JavaScript injected into m.youtube.com. It does two independent things:
  *
- * 1. Adds a "MyTube" row at the bottom of YouTube's own Settings page (reached
+ * 1. Adds a "MyTube" bar at the bottom of YouTube's own Settings page (reached
  *    via the account avatar > Settings), so opening our Settings doesn't need a
- *    floating button sitting on top of YouTube's UI. It's appended as a plain,
- *    independently-styled block right after `<ytm-settings>` inside its parent
- *    `.page-container` — NOT nested inside any of YouTube's own custom elements
- *    (`ytm-setting-generic-category` etc.), because those are web components
- *    with their own shadow-DOM render template that silently ignores/replaces
- *    light-DOM children handed to them; a first attempt building a row out of
- *    that exact tag never rendered anything for precisely that reason.
+ *    floating button sitting on top of YouTube's UI on every page.
+ *    Two earlier attempts at this failed on-device despite looking correct
+ *    against a captured DOM snapshot: appending as a `ytm-setting-generic-category`
+ *    inside `ytm-setting-category-collection-renderer` (that's a web component
+ *    with its own shadow-DOM template that ignores light-DOM children), then
+ *    appending a plain `<div>` as a document-flow sibling of `<ytm-settings>`
+ *    (still invisible — likely some ancestor's overflow/height clips content
+ *    added after it, impossible to tell without live devtools access). Neither
+ *    depends-on-page-layout approach held up, so this one uses `position: fixed`
+ *    instead: it renders relative to the viewport, escaping whatever the
+ *    surrounding layout is doing, and is shown only while `ytm-settings` exists
+ *    in the DOM so it doesn't sit on top of the feed like the very first attempt.
  *
  * 2. Blocks ads, in the two ways request-level blocking (AdBlocker.kt) can't:
  *    strips the ad fields out of the /youtubei/v1/player response before
@@ -199,17 +204,25 @@ object FeedScript {
     's1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
 
   function ensureSettingsMenuItem() {
-    if (document.getElementById('mytube-settings-row')) return;
-    var settings = document.querySelector('ytm-settings');
-    if (!settings || !settings.parentElement) return;
+    var onSettingsPage = !!document.querySelector('ytm-settings');
+    var existing = document.getElementById('mytube-settings-row');
+
+    if (!onSettingsPage) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) return;
+    if (!document.body) return;
 
     var row = document.createElement('div');
     row.id = 'mytube-settings-row';
     row.setAttribute('role', 'button');
     row.tabIndex = 0;
-    row.style.cssText = 'display:flex;align-items:center;gap:24px;padding:16px;' +
-      'cursor:pointer;color:#fff;font-family:Roboto,Arial,sans-serif;' +
-      'border-top:1px solid rgba(255,255,255,0.2);';
+    row.style.cssText = 'position:fixed;left:0;right:0;bottom:0;' +
+      'display:flex;align-items:center;gap:24px;padding:16px;' +
+      'padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));' +
+      'background:#0f0f0f;cursor:pointer;color:#fff;font-family:Roboto,Arial,sans-serif;' +
+      'border-top:1px solid rgba(255,255,255,0.2);z-index:2147483647;';
     row.innerHTML =
       '<span style="display:flex;flex-shrink:0;">' + COG_SVG + '</span>' +
       '<span style="font-size:14px;">MyTube</span>';
@@ -218,7 +231,7 @@ object FeedScript {
       e.stopPropagation();
       try { window.MyTubeNative.openSettings(); } catch (err) {}
     });
-    settings.parentElement.appendChild(row);
+    document.body.appendChild(row);
   }
 
   function tick() {
