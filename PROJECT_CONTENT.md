@@ -20,6 +20,7 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
    παρόμοιο με το πρότυπο του project `thrylos-news`.
 5. Αποκλείει διαφημίσεις, όπως κάνει ο Brave (βλ. ενότητα 5 παρακάτω).
 6. Μπορεί να γίνει default handler για YouTube links (βλ. ενότητα 7 παρακάτω).
+7. Επιλέγει προτιμώμενη ποιότητα βίντεο για κάθε βίντεο αυτόματα (βλ. ενότητα 8 παρακάτω).
 
 ## Αρχιτεκτονική / decisions
 
@@ -202,6 +203,25 @@ reload) και δείχνει/κρύβει το κουμπί ανάλογα (`up
 - `onNewIntent`/`youTubeUrlFrom(intent)` στο `MainActivity.kt`: αν το intent είναι
   `ACTION_VIEW` με http(s) data URI, φορτώνεται απευθείας στο WebView (καλύπτει και cold
   start μέσω link, και ήδη-τρέχουσα εφαρμογή).
+
+### 8. Προτιμώμενη ποιότητα βίντεο
+- Το YouTube player εκθέτει το ίδιο JS API που χρησιμοποιεί και το επίσημο IFrame Player
+  API (`setPlaybackQuality`/`setPlaybackQualityRange`) πάνω στο element `#movie_player`
+  (class `ytp-mweb-player`) — επιβεβαιωμένο ότι υπάρχει στο πραγματικό captured DOM μιας
+  σελίδας βίντεο.
+- Ρύθμιση στο Settings (`buttonVideoQuality` → `AlertDialog` με single-choice list) που
+  αποθηκεύει ένα από τα `VideoQuality` ids (`auto`, `hd1080`, `hd720`, `large`=480p,
+  `medium`=360p, `small`=240p, `tiny`=144p — τα ίδια strings που περιμένει το YouTube API).
+  Default: `auto` (δεν κάνει τίποτα, αφήνει το YouTube να διαλέξει μόνο του).
+- Το injected script (`applyPreferredQuality` στο `FeedScript.kt`) καλεί
+  `getPreferredVideoQuality()` από το bridge και εφαρμόζει τη ρύθμιση σε κάθε `video`
+  element **μία φορά ανά βίντεο** (στο `loadedmetadata`/`playing`, με guard attribute
+  `data-mytube-quality-applied` ώστε αν ο χρήστης αλλάξει χειροκίνητα την ποιότητα μέσα
+  στο ίδιο βίντεο μετά, να μην το "παλέψουμε" ξανά).
+- ⚠️ Δεν έχει επιβεβαιωθεί σε πραγματική συσκευή ότι το `setPlaybackQuality` πράγματι
+  αλλάζει την ποιότητα στο mobile web player (το API elements υπάρχουν, αλλά δεν είδαμε
+  live behavior) — αν δεν πιάσει, το επόμενο βήμα θα ήταν να ελεγχθεί
+  `player.getAvailableQualityLevels()` σε πραγματική συσκευή.
 
 ## Περιορισμός στο περιβάλλον όπου γράφτηκε ο κώδικας
 Το sandbox αυτής της συνεδρίας **δεν έχει πρόσβαση σε `dl.google.com`** (Google's Maven

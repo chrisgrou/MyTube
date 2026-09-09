@@ -35,6 +35,11 @@ class WebAppInterface(
     }
 
     @JavascriptInterface
+    fun getPreferredVideoQuality(): String {
+        return Prefs(context).videoQuality
+    }
+
+    @JavascriptInterface
     fun openSettings() {
         val intent = Intent(context, SettingsActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

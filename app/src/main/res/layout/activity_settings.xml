@@ -47,6 +47,29 @@
             android:textColor="#AAAAAA"
             android:textSize="13sp" />
 
+        <!-- Ποιότητα βίντεο -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:text="@string/pref_quality_title"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:text="@string/pref_quality_summary"
+            android:textColor="#AAAAAA"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/buttonVideoQuality"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

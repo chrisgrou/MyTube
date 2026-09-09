@@ -1,5 +1,6 @@
 package com.chrisgrou.mytube
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -26,6 +27,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
     private lateinit var switchFilter: SwitchMaterial
     private lateinit var switchBlockAds: SwitchMaterial
+    private lateinit var buttonVideoQuality: Button
     private lateinit var textCurrentVersion: TextView
     private lateinit var buttonCheckUpdates: Button
     private lateinit var textUpdateStatus: TextView
@@ -42,6 +44,7 @@ class SettingsActivity : AppCompatActivity() {
         prefs = Prefs(this)
         switchFilter = findViewById(R.id.switchFilterImagePosts)
         switchBlockAds = findViewById(R.id.switchBlockAds)
+        buttonVideoQuality = findViewById(R.id.buttonVideoQuality)
         textCurrentVersion = findViewById(R.id.textCurrentVersion)
         buttonCheckUpdates = findViewById(R.id.buttonCheckUpdates)
         textUpdateStatus = findViewById(R.id.textUpdateStatus)
@@ -58,6 +61,9 @@ class SettingsActivity : AppCompatActivity() {
         switchBlockAds.setOnCheckedChangeListener { _, isChecked ->
             prefs.blockAds = isChecked
         }
+
+        updateVideoQualityButtonLabel()
+        buttonVideoQuality.setOnClickListener { showVideoQualityPicker() }
 
         textCurrentVersion.text = getString(
             R.string.current_version,
@@ -127,6 +133,25 @@ class SettingsActivity : AppCompatActivity() {
             buttonDownloadInstall.isEnabled = true
             UpdateInstaller.launchInstall(this@SettingsActivity, uri)
         }
+    }
+
+    private fun updateVideoQualityButtonLabel() {
+        val current = VideoQuality.fromId(prefs.videoQuality)
+        buttonVideoQuality.text = getString(R.string.pref_quality_button, current.label)
+    }
+
+    private fun showVideoQualityPicker() {
+        val options = VideoQuality.entries.toTypedArray()
+        val currentIndex = options.indexOf(VideoQuality.fromId(prefs.videoQuality))
+        AlertDialog.Builder(this)
+            .setTitle(R.string.pref_quality_title)
+            .setSingleChoiceItems(options.map { it.label }.toTypedArray(), currentIndex) { dialog, which ->
+                prefs.videoQuality = options[which].id
+                updateVideoQualityButtonLabel()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun renderHistory() {

@@ -9,6 +9,10 @@
     <string name="pref_adblock_title">Αποκλεισμός διαφημίσεων</string>
     <string name="pref_adblock_summary">Μπλοκάρει ad/tracker domains, κρύβει τα sponsored αποτελέσματα στο feed, και αφαιρεί τις διαφημίσεις πριν/μέσα στα βίντεο.</string>
 
+    <string name="pref_quality_title">Ποιότητα βίντεο</string>
+    <string name="pref_quality_summary">Επιλέγεται αυτόματα σε κάθε βίντεο που ανοίγεις. "Αυτόματη" αφήνει το YouTube να διαλέξει.</string>
+    <string name="pref_quality_button">Ποιότητα: %1$s</string>
+
     <string name="section_updates">Ενημερώσεις εφαρμογής</string>
     <string name="current_version">Τρέχουσα έκδοση: %1$s</string>
     <string name="check_updates">Έλεγχος για ενημερώσεις</string>

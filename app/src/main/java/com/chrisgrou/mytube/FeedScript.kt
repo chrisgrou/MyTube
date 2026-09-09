@@ -16,7 +16,14 @@ package com.chrisgrou.mytube
  *    items in the feed. The player patching depends on this script running at
  *    document-start, before any page script.
  *
- * 2. Hides community "posts" that show images instead of a video — never touches
+ * 2. Forces a preferred playback quality (Settings), by calling the player's own
+ *    `setPlaybackQuality`/`setPlaybackQualityRange` — the same IFrame Player API
+ *    method YouTube's own embeds use, confirmed exposed on the mobile web player
+ *    too (`#movie_player`, class `ytp-mweb-player`, in a real captured watch-page
+ *    DOM). Applied once per video (on its `loadedmetadata`), so a manual change
+ *    the user makes afterward for that video isn't fought.
+ *
+ * 3. Hides community "posts" that show images instead of a video — never touches
  *    normal video items (`ytm-rich-item-renderer`) or the Shorts shelf, since
  *    those use different element tags. Confirmed against a real captured DOM
  *    (m.youtube.com, Sept 2026): a community post is
@@ -164,6 +171,36 @@ object FeedScript {
       }
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Preferred playback quality.
+  // ---------------------------------------------------------------------------
+  function getPreferredQuality() {
+    try { return window.MyTubeNative.getPreferredVideoQuality(); } catch (e) { return 'auto'; }
+  }
+
+  function applyPreferredQuality(videoEl) {
+    var quality = getPreferredQuality();
+    if (!quality || quality === 'auto') return;
+    if (videoEl && videoEl.getAttribute('data-mytube-quality-applied') === quality) return;
+
+    var player = document.getElementById('movie_player');
+    if (!player) return;
+    try {
+      if (typeof player.setPlaybackQualityRange === 'function') {
+        player.setPlaybackQualityRange(quality, quality);
+      }
+      if (typeof player.setPlaybackQuality === 'function') {
+        player.setPlaybackQuality(quality);
+      }
+      if (videoEl) videoEl.setAttribute('data-mytube-quality-applied', quality);
+    } catch (e) {
+      console.error('MyTube applyPreferredQuality failed', e);
+    }
+  }
+
+  document.addEventListener('loadedmetadata', function(e) { applyPreferredQuality(e.target); }, true);
+  document.addEventListener('playing', function(e) { applyPreferredQuality(e.target); }, true);
 
   var POST_SELECTOR = 'ytm-backstage-post-thread-renderer, ytm-backstage-post-renderer, ytm-post-multi-image-renderer, ytm-shared-post-renderer';
   var ITEM_WRAPPER_SELECTOR = 'ytm-rich-section-renderer, ytm-rich-item-renderer, ytm-item-section-renderer > div';
