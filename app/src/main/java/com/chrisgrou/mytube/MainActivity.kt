@@ -215,9 +215,28 @@ class MainActivity : AppCompatActivity() {
 
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState)
+            youTubeUrlFrom(intent)?.let { webView.loadUrl(it) }
         } else {
-            webView.loadUrl(HOME_URL)
+            webView.loadUrl(youTubeUrlFrom(intent) ?: HOME_URL)
         }
+    }
+
+    /**
+     * Handles a YouTube link tapped in another app while MyTube is already
+     * running (launchMode singleTask reuses this instance instead of creating a
+     * second one, delivering the new link here rather than to a fresh onCreate).
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        youTubeUrlFrom(intent)?.let { webView.loadUrl(it) }
+    }
+
+    /** The tapped URL, for a VIEW intent that opened the app via the link intent-filter. */
+    private fun youTubeUrlFrom(intent: Intent?): String? {
+        if (intent?.action != Intent.ACTION_VIEW) return null
+        val uri = intent.data ?: return null
+        return if (uri.scheme == "http" || uri.scheme == "https") uri.toString() else null
     }
 
     /**

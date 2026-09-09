@@ -59,3 +59,11 @@
   της οθόνης, μικρό και ημιδιάφανο, ώστε να μην ενοχλεί όπως η πρώτη (πάνω-δεξιά) εκδοχή.
 - Εμφανίζεται **μόνο** στη σελίδα Ρυθμίσεων του YouTube (`/select_site`), όχι παντού πια:
   το native WebViewClient παρακολουθεί το URL, όχι το DOM.
+
+## v1.5.0
+- Η εφαρμογή μπορεί να γίνει **default handler** για YouTube links (youtube.com,
+  m.youtube.com, www.youtube.com, music.youtube.com, youtu.be) — link από άλλη εφαρμογή,
+  SMS, κ.λπ. ανοίγει μέσα στο MyTube αντί για browser/YouTube app. Χωρίς αυτόματη
+  επαλήθευση (αυτό απαιτεί αρχείο στο youtube.com που μόνο η Google μπορεί να δημοσιεύσει)
+  — ο χρήστης το ενεργοποιεί χειροκίνητα από το "Open with" chooser ή από
+  Ρυθμίσεις → Εφαρμογές → MyTube → Set as default.

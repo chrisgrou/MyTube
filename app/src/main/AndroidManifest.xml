@@ -18,11 +18,34 @@
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.MyTube.Fullscreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Lets MyTube show up as a handler for a YouTube link tapped anywhere
+                 else on the phone (another app, a text message, a search result), same
+                 as the official YouTube app or a browser would. No android:autoVerify:
+                 that needs a verification file hosted at https://<host>/.well-known/
+                 assetlinks.json, which only YouTube itself could publish — without it,
+                 Android shows this app in the "Open with" chooser (or as the always-on
+                 default once the user picks it there, or via Settings → Apps → this
+                 app → Set as default → Add link) rather than claiming links
+                 automatically. onNewIntent in MainActivity is what actually loads the
+                 tapped URL once the app opens. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="youtube.com" />
+                <data android:host="www.youtube.com" />
+                <data android:host="m.youtube.com" />
+                <data android:host="music.youtube.com" />
+                <data android:host="youtu.be" />
             </intent-filter>
         </activity>
 

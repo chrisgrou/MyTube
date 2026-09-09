@@ -19,6 +19,7 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
 4. Υποστηρίζει ενημερώσεις (updates) μέσω GitHub Releases του ίδιου repo, με ιστορικό,
    παρόμοιο με το πρότυπο του project `thrylos-news`.
 5. Αποκλείει διαφημίσεις, όπως κάνει ο Brave (βλ. ενότητα 5 παρακάτω).
+6. Μπορεί να γίνει default handler για YouTube links (βλ. ενότητα 7 παρακάτω).
 
 ## Αρχιτεκτονική / decisions
 
@@ -184,6 +185,23 @@ reload) και δείχνει/κρύβει το κουμπί ανάλογα (`up
   `FLAG_KEEP_SCREEN_ON`. Καλύπτει και inline και fullscreen αναπαραγωγή.
 - Το back button βγάζει πρώτα από fullscreen (`leaveFullscreenIfActive`) πριν πάει σε
   `webView.goBack()` ή έξοδο από την εφαρμογή.
+
+### 7. Default handler για YouTube links
+- Intent-filter με `ACTION_VIEW` + `BROWSABLE` για τα hosts youtube.com, www.youtube.com,
+  m.youtube.com, music.youtube.com, youtu.be (σχήμα ίδιο με το `no-algo-fb` για
+  facebook.com links).
+- **Χωρίς `android:autoVerify`**: αυτό απαιτεί ένα `assetlinks.json` αρχείο hosted στο
+  `https://youtube.com/.well-known/assetlinks.json` που μόνο η ίδια η Google μπορεί να
+  δημοσιεύσει — δεν μπορούμε να το κάνουμε auto-verified default. Χωρίς αυτό, το Android
+  δείχνει την εφαρμογή στο "Open with" chooser όταν πατηθεί ένα YouTube link· ο χρήστης
+  μπορεί να την κάνει μόνιμο default είτε επιλέγοντάς την εκεί (με "Always"), είτε από
+  Ρυθμίσεις Android → Εφαρμογές → MyTube → Set as default → Add link.
+- `launchMode` άλλαξε από `singleTop` σε **`singleTask`**: αν η εφαρμογή τρέχει ήδη και
+  πατηθεί ένα YouTube link αλλού, θέλουμε να ξαναχρησιμοποιηθεί το ίδιο instance (όχι νέο
+  πάνω από το παλιό) — το νέο URL φτάνει μέσω `onNewIntent`, όχι νέο `onCreate`.
+- `onNewIntent`/`youTubeUrlFrom(intent)` στο `MainActivity.kt`: αν το intent είναι
+  `ACTION_VIEW` με http(s) data URI, φορτώνεται απευθείας στο WebView (καλύπτει και cold
+  start μέσω link, και ήδη-τρέχουσα εφαρμογή).
 
 ## Περιορισμός στο περιβάλλον όπου γράφτηκε ο κώδικας
 Το sandbox αυτής της συνεδρίας **δεν έχει πρόσβαση σε `dl.google.com`** (Google's Maven
