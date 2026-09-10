@@ -1,12 +1,15 @@
 package com.chrisgrou.mytube
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
@@ -27,7 +30,9 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -77,6 +82,9 @@ class MainActivity : AppCompatActivity() {
     @Volatile
     private var adBlockEnabled: Boolean = true
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op either way — see requestNotificationPermissionIfNeeded */ }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,6 +103,8 @@ class MainActivity : AppCompatActivity() {
 
         swipeRefresh.setColorSchemeResources(R.color.youtube_red)
         swipeRefresh.setOnRefreshListener { webView.reload() }
+
+        requestNotificationPermissionIfNeeded()
 
         // Edge-to-edge draws the WebView behind the status/navigation bars for a
         // borderless look, but without this the page's own top content renders
@@ -128,7 +138,10 @@ class MainActivity : AppCompatActivity() {
             WebAppInterface(
                 context = this,
                 onSetPullToRefreshAllowed = { allowed -> swipeRefresh.isEnabled = allowed },
-                onVideoPlayingChanged = { playing -> keepScreenOn(playing) },
+                onVideoPlayingChanged = { playing ->
+                    keepScreenOn(playing)
+                    setPlaybackServiceRunning(playing)
+                },
                 onVideoAspectChanged = { isPortrait -> lastVideoIsPortrait = isPortrait },
             ),
             "MyTubeNative"
@@ -428,6 +441,37 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * PlaybackService's only job is to keep this process alive (and so the
+     * WebView's audio playing) once the app is backgrounded or the screen locks;
+     * see its own doc comment for why a foreground service is what that takes.
+     */
+    private fun setPlaybackServiceRunning(running: Boolean) {
+        val intent = Intent(this, PlaybackService::class.java)
+        if (running) {
+            ContextCompat.startForegroundService(this, intent)
+        } else {
+            stopService(intent)
+        }
+    }
+
+    /**
+     * Android 13+ requires this permission to actually display a foreground
+     * service's notification — without it the service still runs (so audio still
+     * keeps playing), it's just invisible. Asked once, up front, like most media
+     * apps do; declining doesn't block anything else in the app.
+     */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         adBlockEnabled = Prefs(this).blockAds
@@ -456,6 +500,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        setPlaybackServiceRunning(false)
         (webView.parent as? ViewGroup)?.removeView(webView)
         webView.destroy()
         super.onDestroy()

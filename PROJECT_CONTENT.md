@@ -21,6 +21,8 @@ Repo: `chrisgrou/mytube` (GitHub). Package/applicationId: `com.chrisgrou.mytube`
 5. Αποκλείει διαφημίσεις, όπως κάνει ο Brave (βλ. ενότητα 5 παρακάτω).
 6. Μπορεί να γίνει default handler για YouTube links (βλ. ενότητα 7 παρακάτω).
 7. Επιλέγει προτιμώμενη ποιότητα βίντεο για κάθε βίντεο αυτόματα (βλ. ενότητα 8 παρακάτω).
+8. Συνεχίζει να παίζει ήχο όταν κλειδώνεις την οθόνη ή αλλάζεις εφαρμογή (βλ. ενότητα 9
+   παρακάτω). Media notification controls: επόμενο βήμα, όχι ακόμα.
 
 ## Αρχιτεκτονική / decisions
 
@@ -222,6 +224,35 @@ reload) και δείχνει/κρύβει το κουμπί ανάλογα (`up
   αλλάζει την ποιότητα στο mobile web player (το API elements υπάρχουν, αλλά δεν είδαμε
   live behavior) — αν δεν πιάσει, το επόμενο βήμα θα ήταν να ελεγχθεί
   `player.getAvailableQualityLevels()` σε πραγματική συσκευή.
+
+### 9. Background audio (χωρίς media notification controls ακόμα)
+Ζητήθηκε ρητά σε δύο βήματα από τον χρήστη: πρώτα background audio, μετά media notification
+controls (ξεχωριστό, μελλοντικό task).
+
+- **Το πρόβλημα**: ένα απλό WebView-wrapper app δεν κρατάει τον ήχο να παίζει όταν ο χρήστης
+  κλειδώνει την οθόνη ή αλλάζει εφαρμογή — το Android σταματάει/σκοτώνει τη διαδικασία
+  (process) του backgrounded app μετά από λίγο, ό,τι κι αν κάνει η ίδια η σελίδα/JS.
+- **Η λύση**: `PlaybackService.kt`, ένα minimal foreground `Service` (`foregroundServiceType
+  ="mediaPlayback"`). Ξεκινάει/σταματάει από το `MainActivity` (`setPlaybackServiceRunning`)
+  μέσα στο ήδη υπάρχον `onVideoPlayingChanged` callback (το ίδιο σήμα play/pause που ήδη
+  χρησιμοποιούσαμε για το `FLAG_KEEP_SCREEN_ON`).
+  - Το foreground service είναι αυτό που εμποδίζει το Android να σκοτώσει τη διαδικασία —
+    δεν κάνουμε τίποτα άλλο "μαγικό" στο ίδιο το WebView. Το Chromium engine που τρέχει το
+    YouTube ήδη εξαιρεί (δεν throttle-άρει) tabs που παίζουν ήχο, οπότε η ίδια η αναπαραγωγή
+    συνεχίζεται φυσιολογικά όσο η διαδικασία μένει ζωντανή.
+  - Απαιτεί μια μόνιμη (ongoing) notification όσο τρέχει — υποχρεωτικό από το ίδιο το
+    Android για foreground services, χωρίς κουμπιά προς το παρόν (θα προστεθούν με το media
+    notification controls task). Tap πάνω της ανοίγει την εφαρμογή.
+  - Ζητάει `POST_NOTIFICATIONS` permission μία φορά στο `onCreate` (Android 13+) — αν δεν
+    δοθεί, το service συνεχίζει να τρέχει κανονικά (ο ήχος συνεχίζεται), απλά χωρίς ορατή
+    notification.
+  - Ζητάει audio focus (`AudioManager`, `AUDIOFOCUS_GAIN`) ώστε να συμπεριφέρεται σωστά με
+    άλλες εφαρμογές ήχου (π.χ. duck/pause), αλλά δεν διαχειρίζεται ακόμα το reaction σε
+    audio focus loss (θα μπει μαζί με το media session στο επόμενο task).
+- ⚠️ **Δεν έχει δοκιμαστεί σε πραγματική συσκευή**. Πιθανά σημεία τριβής σε πραγματική χρήση:
+  aggressive battery optimization από κάποια OEM (Xiaomi/Huawei/κ.λπ.) μπορεί να σκοτώσει
+  και foreground services αν δεν εξαιρεθεί η εφαρμογή χειροκίνητα από τον χρήστη· δεν
+  ζητάμε "Ignore battery optimizations" αυτόματα (πιο invasive permission prompt).
 
 ## Περιορισμός στο περιβάλλον όπου γράφτηκε ο κώδικας
 Το sandbox αυτής της συνεδρίας **δεν έχει πρόσβαση σε `dl.google.com`** (Google's Maven

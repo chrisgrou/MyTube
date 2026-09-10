@@ -27,6 +27,9 @@
     <string name="brightness_indicator">Φωτεινότητα %1$d%%</string>
     <string name="volume_indicator">Ένταση %1$d%%</string>
 
+    <string name="playback_notification_channel">Αναπαραγωγή</string>
+    <string name="playback_notification_text">Αναπαραγωγή σε εξέλιξη</string>
+
     <string name="section_history">Ιστορικό ενημερώσεων</string>
     <string name="history_empty">Δεν υπάρχει ακόμα ιστορικό ενημερώσεων σε αυτή τη συσκευή.</string>
 </resources>

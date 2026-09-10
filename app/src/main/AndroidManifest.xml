@@ -5,6 +5,14 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Lets playback keep going (and the process stay alive) after the user
+         locks the screen or switches to another app — see PlaybackService. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Android 13+ requires this to actually show the foreground service's
+         notification; without it the service still runs, just silently. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".MyTubeApp"
         android:allowBackup="true"
@@ -54,6 +62,14 @@
             android:exported="false"
             android:label="@string/settings_title"
             android:parentActivityName=".MainActivity" />
+
+        <!-- Keeps the process (and so the WebView's audio) alive while a video is
+             playing and the app is backgrounded/the screen is locked. Started and
+             stopped from MainActivity as playback starts/stops. -->
+        <service
+            android:name=".PlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- Exposes the downloaded update APK (private app cache) to the system
              package installer via a content:// Uri, since installers can't be
