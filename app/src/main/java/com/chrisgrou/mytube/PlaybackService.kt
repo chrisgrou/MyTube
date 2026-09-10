@@ -6,9 +6,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -22,15 +19,21 @@ import androidx.core.app.NotificationCompat
  * playing (MainActivity's onVideoPlayingChanged, via the injected script's
  * play/pause events) and stopped when it stops.
  *
- * Deliberately minimal for now: just the always-required ongoing notification
- * (tapping it reopens the app) and requesting audio focus so other apps duck or
- * pause the way they would for any other media app. No transport controls yet —
- * those need a MediaSession wired to the page's actual play/pause/seek, which is
- * a separate, larger piece of work than "keep the audio alive" is on its own.
+ * Deliberately does NOT request its own audio focus. It used to (for other apps
+ * to duck/pause, like any other media app would trigger), but that meant two
+ * separate AudioFocusRequest holders within the same process — this service's,
+ * and the one Chromium/WebView already registers on its own for the actual
+ * playing <video> element. Every genuine play resumed this service (after a
+ * pause stopped it and abandoned its focus), so every resume re-requested
+ * focus, which interrupted the WebView's own already-held request — Chromium
+ * reacted to that as a focus loss and auto-paused the video within
+ * milliseconds. Ducking/pausing for other apps' audio already happens via the
+ * WebView's own focus handling, so this service doesn't need to duplicate it.
+ * No transport controls yet — those need a MediaSession wired to the page's
+ * actual play/pause/seek, which is a separate, larger piece of work than "keep
+ * the audio alive" is on its own.
  */
 class PlaybackService : Service() {
-
-    private var audioFocusRequest: AudioFocusRequest? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -46,13 +49,7 @@ class PlaybackService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, buildNotification())
         }
-        requestAudioFocus()
         return START_STICKY
-    }
-
-    override fun onDestroy() {
-        abandonAudioFocus()
-        super.onDestroy()
     }
 
     private fun buildNotification(): Notification {
@@ -87,34 +84,6 @@ class PlaybackService : Service() {
             NotificationManager.IMPORTANCE_LOW
         )
         manager.createNotificationChannel(channel)
-    }
-
-    private fun requestAudioFocus() {
-        // Idempotent: onStartCommand can in principle run more than once for
-        // the same "playback session" (e.g. the system restarting the
-        // service). Re-requesting AUDIOFOCUS_GAIN when we already hold it
-        // creates a second, distinct AudioFocusRequest — Android then treats
-        // that as a new focus holder interrupting the previous one, which the
-        // WebView's own already-playing video reacts to by auto-pausing
-        // itself. See MainActivity.setPlaybackServiceRunning's doc comment.
-        if (audioFocusRequest != null) return
-        val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-        val attributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
-        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-            .setAudioAttributes(attributes)
-            .build()
-        audioFocusRequest = request
-        audioManager.requestAudioFocus(request)
-    }
-
-    private fun abandonAudioFocus() {
-        val request = audioFocusRequest ?: return
-        val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-        audioManager.abandonAudioFocusRequest(request)
-        audioFocusRequest = null
     }
 
     companion object {
