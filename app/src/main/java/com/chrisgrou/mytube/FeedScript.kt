@@ -329,19 +329,25 @@ object FeedScript {
   // ---------------------------------------------------------------------------
   // TEMPORARY diagnostic logging for the "seek in fullscreen leaves it paused"
   // bug (v1.7.3's fix — not hiding the WebView anymore — did not resolve it).
-  // Logs land in Logcat via onConsoleMessage (anything containing "MyTube").
-  // Remove once the real cause is found.
+  // The user has no way to pull Logcat off their device, so this also feeds
+  // DebugLog (via the MyTubeNative bridge) — SettingsActivity has a "copy
+  // debug log" button that puts these lines on the clipboard to paste back.
+  // Remove both once the real cause is found.
   // ---------------------------------------------------------------------------
   function logVideoEvent(type, video) {
     if (!video) return;
     try {
-      console.log('MyTube[seekdebug] ' + type +
+      var line = 'MyTube[seekdebug] ' + type +
         ' t=' + Date.now() +
         ' paused=' + video.paused +
         ' currentTime=' + video.currentTime.toFixed(2) +
         ' readyState=' + video.readyState +
         ' networkState=' + video.networkState +
-        ' ended=' + video.ended);
+        ' ended=' + video.ended;
+      console.log(line);
+      if (window.MyTubeNative && window.MyTubeNative.logDebug) {
+        window.MyTubeNative.logDebug(line);
+      }
     } catch (e) {}
   }
   ['seeking', 'seeked', 'pause', 'play', 'playing', 'waiting', 'stalled', 'canplay', 'suspend'].forEach(function(type) {

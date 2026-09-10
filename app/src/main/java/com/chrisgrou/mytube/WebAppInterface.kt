@@ -63,4 +63,11 @@ class WebAppInterface(
         if (width <= 0 || height <= 0) return
         mainHandler.post { onVideoAspectChanged(height > width) }
     }
+
+    // TEMPORARY: backs the seek-pause diagnostic logging in FeedScript.kt —
+    // see DebugLog's doc comment. Remove both once the real cause is found.
+    @JavascriptInterface
+    fun logDebug(message: String) {
+        DebugLog.add(message)
+    }
 }

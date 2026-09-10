@@ -209,6 +209,14 @@ reload) και δείχνει/κρύβει το κουμπί ανάλογα (`up
     MyTubeWebView` από υπολογιστή, ή κάποια logcat-viewer εφαρμογή στο ίδιο το κινητό), ώστε
     να φανεί ποιο ακριβώς event λείπει/έρχεται λάθος πριν αποφασιστεί το πραγματικό fix. Να
     αφαιρεθεί το logging μόλις βρεθεί η αιτία.
+  - Ο χρήστης δεν έχει τρόπο να δει Logcat στη συσκευή του — δεν υπάρχει adb/υπολογιστής
+    διαθέσιμος. Λύση (v1.7.5): οι ίδιες γραμμές φτάνουν πλέον και σε ένα in-memory ring
+    buffer στο native (`DebugLog.kt`, τελευταίες ~300 γραμμές), μέσω νέας JS bridge method
+    `MyTubeNative.logDebug(message)`. Το `SettingsActivity` έχει μια προσωρινή ενότητα
+    "Debug log" με κουμπί που αντιγράφει το buffer στο clipboard — ο χρήστης το κάνει paste
+    κατευθείαν στη συνομιλία. Όλο αυτό (DebugLog.kt, το bridge method, το section στο
+    settings layout) είναι προσωρινό και θα αφαιρεθεί μαζί με το υπόλοιπο diagnostic
+    logging μόλις βρεθεί η πραγματική αιτία του seek-pause bug.
 - **Keep screen on**: ένα WebView δεν κρατάει την οθόνη ξύπνια όπως ο browser, οπότε η οθόνη
   σκοτείνιαζε στη μέση του βίντεο. Το injected script ακούει `play`/`playing`/`pause`/`ended`
   **σε capture phase** (τα media events δεν κάνουν bubble) και το native βάζει/βγάζει

@@ -149,6 +149,37 @@
             android:layout_marginBottom="40dp"
             android:orientation="vertical" />
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="20dp"
+            android:background="#33FFFFFF" />
+
+        <!-- Προσωρινό: debug log για το πρόβλημα seek+παύση σε fullscreen -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:text="@string/section_debug"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:text="@string/debug_summary"
+            android:textColor="#AAAAAA"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/buttonCopyDebugLog"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="40dp"
+            android:text="@string/copy_debug_log" />
+
     </LinearLayout>
 
 </androidx.core.widget.NestedScrollView>

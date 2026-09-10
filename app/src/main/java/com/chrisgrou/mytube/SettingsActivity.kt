@@ -1,6 +1,8 @@
 package com.chrisgrou.mytube
 
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -10,6 +12,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.chrisgrou.mytube.update.UpdateChecker
@@ -34,6 +37,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var buttonDownloadInstall: Button
     private lateinit var progressUpdate: ProgressBar
     private lateinit var containerHistory: LinearLayout
+    private lateinit var buttonCopyDebugLog: Button
 
     private var pendingUpdate: UpdateInfo? = null
 
@@ -51,6 +55,7 @@ class SettingsActivity : AppCompatActivity() {
         buttonDownloadInstall = findViewById(R.id.buttonDownloadInstall)
         progressUpdate = findViewById(R.id.progressUpdate)
         containerHistory = findViewById(R.id.containerHistory)
+        buttonCopyDebugLog = findViewById(R.id.buttonCopyDebugLog)
 
         switchFilter.isChecked = prefs.hideImagePosts
         switchFilter.setOnCheckedChangeListener { _, isChecked ->
@@ -74,6 +79,24 @@ class SettingsActivity : AppCompatActivity() {
         buttonDownloadInstall.setOnClickListener { onDownloadInstallClicked() }
 
         renderHistory()
+
+        buttonCopyDebugLog.setOnClickListener { copyDebugLogToClipboard() }
+    }
+
+    // TEMPORARY: pairs with FeedScript.kt's seek-pause diagnostic logging and
+    // DebugLog. The user has no way to pull Logcat off their device, so this
+    // puts the captured lines on the clipboard to paste back into chat.
+    // Remove once the real cause is found.
+    private fun copyDebugLogToClipboard() {
+        val log = DebugLog.getAll()
+        if (log.isBlank()) {
+            Toast.makeText(this, R.string.debug_log_empty, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("MyTube debug log", log))
+        val lineCount = log.count { it == '\n' } + 1
+        Toast.makeText(this, getString(R.string.debug_log_copied, lineCount), Toast.LENGTH_SHORT).show()
     }
 
     private fun checkForUpdates() {

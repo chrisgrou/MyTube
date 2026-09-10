@@ -32,4 +32,10 @@
 
     <string name="section_history">Ιστορικό ενημερώσεων</string>
     <string name="history_empty">Δεν υπάρχει ακόμα ιστορικό ενημερώσεων σε αυτή τη συσκευή.</string>
+
+    <string name="section_debug">Debug log (προσωρινό)</string>
+    <string name="debug_summary">Καταγράφει τι συμβαίνει στο βίντεο γύρω από ένα seek σε fullscreen. Μετά την αναπαραγωγή του προβλήματος, πάτα το κουμπί και κάνε paste το περιεχόμενο στη συνομιλία.</string>
+    <string name="copy_debug_log">Αντιγραφή debug log</string>
+    <string name="debug_log_copied">Το debug log αντιγράφηκε (%1$d γραμμές).</string>
+    <string name="debug_log_empty">Το debug log είναι άδειο — δοκίμασε πρώτα το seek σε fullscreen.</string>
 </resources>
