@@ -421,15 +421,29 @@ object FeedScript {
   // rotated to landscape while not already in fullscreen: automatically enters
   // fullscreen for whatever landscape-shaped video is currently playing, the
   // same way rotating while watching already behaves in a real mobile browser.
-  // Best-effort: the Fullscreen API normally requires a user gesture, and a
-  // hardware rotation may or may not count as one inside a WebView — if the
-  // browser refuses, requestFullscreen() rejects and this is a silent no-op.
+  //
+  // Clicks YouTube's own fullscreen button rather than calling
+  // video.requestFullscreen() directly: calling the browser API ourselves does
+  // put the video in fullscreen, but skips YouTube's own fullscreen-entry code
+  // (setting up its custom controls overlay, tap-to-show-controls handling,
+  // etc.) — the video plays, but with none of YouTube's own touch handling
+  // layered on top, so a bare tap falls through to the browser's native
+  // default of tap-to-pause instead. Going through the real button makes
+  // YouTube's own click handler do the work, same as tapping it by hand.
+  var FULLSCREEN_BUTTON_SELECTOR = '.ytp-fullscreen-button, .ytp-fullscreen-control, ' +
+    'button[aria-label*="Πλήρης οθόνη"], button[aria-label*="Fullscreen" i], ' +
+    'button[aria-label*="Full screen" i], button[title*="Fullscreen" i]';
   window.__mytubeEnterFullscreenIfLandscapeVideo = function() {
     try {
       if (document.fullscreenElement) return;
       var video = findActiveVideo();
       if (!video || video.paused || video.ended) return;
       if (video.videoHeight >= video.videoWidth) return; // portrait/Short: leave it alone
+      var button = document.querySelector(FULLSCREEN_BUTTON_SELECTOR);
+      if (button) { button.click(); return; }
+      // Fallback if the button can't be found: still enters fullscreen, just
+      // without YouTube's own controls layered on top (the tap-to-pause quirk
+      // above).
       var request = video.requestFullscreen || video.webkitRequestFullscreen ||
         video.webkitEnterFullscreen;
       if (request) request.call(video);

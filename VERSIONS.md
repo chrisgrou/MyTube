@@ -157,3 +157,12 @@
   ήδη κατεχόμενο focus του player). Fix: το service **δεν ζητάει καθόλου δικό του audio
   focus πια** — αυτό είναι ήδη δουλειά του Chromium/WebView για το πραγματικό media element,
   δεν χρειαζόταν διπλασιασμό.
+
+## v1.7.10
+- **Fix: tap παντού έκανε παύση σε fullscreen μόνο όταν αυτό μπήκε αυτόματα με rotation**
+  (με το κουμπί του UI δούλευε κανονικά). Αιτία: το auto-fullscreen (v1.7.7) καλούσε
+  `video.requestFullscreen()` απευθείας, παρακάμπτοντας τον δικό του μηχανισμό εισόδου του
+  YouTube (custom controls overlay, tap-to-show-controls) — έμενε μόνο η προεπιλεγμένη
+  συμπεριφορά του browser (tap = pause). Fix: τώρα κάνει click στο πραγματικό κουμπί
+  fullscreen του YouTube (ώστε να τρέξει ο δικός του handler), με fallback στο απευθείας API
+  αν δεν βρεθεί το κουμπί.

@@ -434,3 +434,24 @@ selectors. Αν κάτι σχετικό με DOM/selectors "σπάσει" ξαν
   πραγματικότητα: κρατάει τη διαδικασία ζωντανή μέσω του foreground notification.
 - Το guard από το v1.7.8 (δεν ξαναστέλνει service αν ήδη τρέχει στην ίδια κατάσταση)
   παραμένει — ήταν σωστό ως προστασία από redundant κλήσεις, απλά δεν ήταν η πλήρης λύση.
+
+### 14. Fix: auto-fullscreen (rotation) έκανε tap-to-pause παντού (v1.7.10)
+Ο χρήστης επιβεβαίωσε ότι το auto-fullscreen-on-rotate (ενότητα 11 / v1.7.7) **δουλεύει**
+(σημαντικό: το `video.requestFullscreen()` call πέρασε, η ανησυχία για user-gesture
+requirement δεν επαληθεύτηκε ως πρόβλημα σε πράξη) — αλλά με side effect: όταν το fullscreen
+μπαίνει έτσι (rotation), ένα απλό tap οπουδήποτε στην οθόνη κάνει παύση· όταν μπαίνει με το
+κανονικό κουμπί fullscreen του UI, δουλεύει σωστά.
+
+- **Αιτία**: καλώντας `video.requestFullscreen()` απευθείας, μπαίνουμε σε fullscreen μόνο σε
+  επίπεδο browser API — παρακάμπτεται ο δικός του κώδικας του YouTube για είσοδο σε
+  fullscreen (setup του custom controls overlay, tap-to-show-controls handling, κ.λπ.).
+  Χωρίς αυτό το setup, ένα tap πέφτει στην προεπιλεγμένη συμπεριφορά του browser για
+  `<video>`: tap = pause.
+- **Fix**: το `__mytubeEnterFullscreenIfLandscapeVideo` τώρα κάνει `click()` στο πραγματικό
+  κουμπί fullscreen του YouTube player (`.ytp-fullscreen-button`/`.ytp-fullscreen-control`/
+  `aria-label`/`title` περιέχει "fullscreen"/"πλήρης οθόνη"), ώστε να τρέξει ο δικός του
+  click handler — ίδιο αποτέλεσμα με το να το πατήσει ο χρήστης. Fallback στο απευθείας API
+  αν δεν βρεθεί κανένα matching κουμπί (καλύτερα κάτι παρά τίποτα).
+- ⚠️ Το selector για το κουμπί **δεν έχει επιβεβαιωθεί** πάνω σε πραγματικό captured DOM (σε
+  αντίθεση με τα περισσότερα άλλα selectors σε αυτό το αρχείο) — αν δεν πιάσει κανένα από
+  αυτά, το επόμενο βήμα θα ήταν να ζητηθεί .mht/screenshot του fullscreen player UI.
