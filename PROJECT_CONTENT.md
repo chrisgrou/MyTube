@@ -189,6 +189,15 @@ reload) και δείχνει/κρύβει το κουμπί ανάλογα (`up
     ενός double-tap (π.χ. double tap για seek +10": ο χρήστης το ανέφερε ως το βίντεο να
     μπαίνει σε παύση αντί να συνεχίσει). Διορθώθηκε ώστε το layout να μην καταναλώνει τίποτα
     εκτός αν υπάρχει ήδη ενεργό κάθετο drag (`if (!dragging) return false` στην αρχή).
+  - **Bug (v1.7.3, ξεχωριστό)**: μετά το παραπάνω fix, ο χρήστης ανέφερε ότι seek +10" ΚΑΙ
+    χειροκίνητο σέρνιμο της μπάρας σε fullscreen δούλευαν (το seek γινόταν), αλλά το βίντεο
+    έμενε σε παύση. Αιτία: το `enterFullscreen` έκανε `webView.visibility = View.GONE`. Το
+    Chromium συσχετίζει την ορατότητα του View με το αν θεωρεί τη σελίδα visible/foreground
+    και throttle-άρει timers/JS callbacks όταν όχι — άρα το δικό του JS logic του YouTube
+    που πρέπει να τρέξει μετά το `seeked` event για να καλέσει ξανά `play()` καθυστερούσε ή
+    δεν έτρεχε καθόλου. Λύση: το WebView μένει `VISIBLE` σε όλη τη διάρκεια του fullscreen —
+    δεν χρειαζόταν να κρύβεται έτσι κι αλλιώς, αφού το αδιαφανές fullscreen container το
+    καλύπτει πλήρως οπτικά.
 - **Keep screen on**: ένα WebView δεν κρατάει την οθόνη ξύπνια όπως ο browser, οπότε η οθόνη
   σκοτείνιαζε στη μέση του βίντεο. Το injected script ακούει `play`/`playing`/`pause`/`ended`
   **σε capture phase** (τα media events δεν κάνουν bubble) και το native βάζει/βγάζει

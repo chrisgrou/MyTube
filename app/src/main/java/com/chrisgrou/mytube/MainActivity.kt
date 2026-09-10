@@ -323,7 +323,12 @@ class MainActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
-        webView.visibility = View.GONE
+        // Deliberately NOT hiding the WebView (no visibility = View.GONE here):
+        // the opaque fullscreen container already covers it completely, and
+        // marking the WebView not-shown makes Chromium treat its page as
+        // backgrounded, throttling the very JS (YouTube's own seek/resume
+        // handling) that needs to keep running for playback to resume after a
+        // seek performed from this fullscreen view.
 
         WindowInsetsControllerCompat(window, window.decorView).apply {
             systemBarsBehavior =
