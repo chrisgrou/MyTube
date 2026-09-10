@@ -78,3 +78,11 @@
   εφαρμογή (foreground service κρατάει τη διαδικασία ζωντανή). Δείχνει μια μόνιμη
   notification χωρίς κουμπιά ακόμα — τα media controls (play/pause από τη notification/
   lock screen) είναι ξεχωριστό, επόμενο βήμα.
+
+## v1.7.1
+- **Fix background audio**: το v1.7.0 δεν αρκούσε — το YouTube player JS σταματούσε μόνο
+  του το βίντεο όταν η σελίδα αναφερόταν ως "hidden" (Page Visibility API), ανεξάρτητα από
+  το ότι η διαδικασία έμενε ζωντανή. Προστέθηκε suppression αυτού του API στο injected
+  script (pattern δανεισμένο από το `no-algo-fb`): `document.hidden`/`visibilityState`
+  πάντα "ορατό", και τα σχετικά events (`visibilitychange`, `pagehide`, `pageshow`, κ.λπ.)
+  μπλοκάρονται πριν φτάσουν στο YouTube.

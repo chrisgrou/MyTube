@@ -53,6 +53,57 @@ object FeedScript {
   }
 
   // ---------------------------------------------------------------------------
+  // Background audio: never let the page find out it was backgrounded.
+  //
+  // PlaybackService.kt keeps the *process* alive once the app is backgrounded —
+  // necessary but not sufficient. YouTube's own player watches the Page
+  // Visibility API and pauses the video the moment the tab is reported hidden,
+  // the same way most video sites do to save battery. So document.hidden/
+  // visibilityState are pinned to "visible", and the visibility/lifecycle events
+  // are swallowed before any YouTube listener sees them — same trick already
+  // proven for a similar problem in the no-algo-fb project.
+  //
+  // This works despite running after YouTube's own scripts start listening
+  // because of *where* it intercepts: capture phase on window, which the DOM
+  // walks before anything registered on document (where visibilitychange
+  // actually dispatches, and where YouTube's own listener lives) ever sees the
+  // event. Capture order beats registration order here.
+  // ---------------------------------------------------------------------------
+  function pinVisible(prop, value) {
+    try {
+      Object.defineProperty(document, prop, { configurable: true, get: function() { return value; } });
+    } catch (e) {}
+  }
+  pinVisible('hidden', false);
+  pinVisible('webkitHidden', false);
+  pinVisible('visibilityState', 'visible');
+  pinVisible('webkitVisibilityState', 'visible');
+
+  var SUPPRESSED_LIFECYCLE_EVENTS = [
+    'visibilitychange', 'webkitvisibilitychange', 'pagehide', 'pageshow', 'freeze', 'resume'
+  ];
+
+  function suppressLifecycleEvent(event) {
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+  }
+
+  for (var li = 0; li < SUPPRESSED_LIFECYCLE_EVENTS.length; li++) {
+    window.addEventListener(SUPPRESSED_LIFECYCLE_EVENTS[li], suppressLifecycleEvent, true);
+  }
+
+  // Also stop new listeners for those events from being registered at all —
+  // covers window-targeted events a capturing window listener can't get ahead
+  // of (it IS the window listener). Every other event type passes through.
+  var nativeAddEventListener = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function(type, listener, options) {
+    if (listener !== suppressLifecycleEvent && SUPPRESSED_LIFECYCLE_EVENTS.indexOf(type) >= 0) {
+      return;
+    }
+    return nativeAddEventListener.call(this, type, listener, options);
+  };
+
+  // ---------------------------------------------------------------------------
   // In-stream (pre-roll / mid-roll) ad removal.
   //
   // These ads can't be blocked by URL: their media comes from the same

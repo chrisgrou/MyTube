@@ -249,10 +249,43 @@ controls (ξεχωριστό, μελλοντικό task).
   - Ζητάει audio focus (`AudioManager`, `AUDIOFOCUS_GAIN`) ώστε να συμπεριφέρεται σωστά με
     άλλες εφαρμογές ήχου (π.χ. duck/pause), αλλά δεν διαχειρίζεται ακόμα το reaction σε
     audio focus loss (θα μπει μαζί με το media session στο επόμενο task).
-- ⚠️ **Δεν έχει δοκιμαστεί σε πραγματική συσκευή**. Πιθανά σημεία τριβής σε πραγματική χρήση:
-  aggressive battery optimization από κάποια OEM (Xiaomi/Huawei/κ.λπ.) μπορεί να σκοτώσει
-  και foreground services αν δεν εξαιρεθεί η εφαρμογή χειροκίνητα από τον χρήστη· δεν
-  ζητάμε "Ignore battery optimizations" αυτόματα (πιο invasive permission prompt).
+- ⚠️ **Δοκιμάστηκε σε πραγματική συσκευή (build #22) και ΔΕΝ δούλεψε** — ο χρήστης ανέφερε
+  "δεν συνεχίζει". Αιτία (διάγνωση, βλ. ενότητα 10): το `PlaybackService` κρατάει ζωντανή τη
+  διαδικασία, αλλά αυτό από μόνο του δεν αρκεί — το ίδιο το YouTube player JS σταματάει το
+  βίντεο μόλις η σελίδα αναφερθεί ως "hidden" μέσω του Page Visibility API.
+- Πιθανό μελλοντικό σημείο τριβής (άσχετο με το παραπάνω): aggressive battery optimization
+  από κάποια OEM (Xiaomi/Huawei/κ.λπ.) μπορεί να σκοτώσει και foreground services αν δεν
+  εξαιρεθεί η εφαρμογή χειροκίνητα από τον χρήστη· δεν ζητάμε "Ignore battery optimizations"
+  αυτόματα (πιο invasive permission prompt).
+
+### 10. Background audio fix — Page Visibility API suppression ("resume guard")
+Μετά το build #22 ο χρήστης ανέφερε ότι ο ήχος δεν συνεχίζει στο background παρόλο που το
+`PlaybackService` (ενότητα 9) κρατάει τη διαδικασία ζωντανή.
+
+- **Η πραγματική αιτία**: το `PlaybackService` λύνει μόνο το "μην σκοτώσει το Android τη
+  διαδικασία". Δεν λύνει ότι το ίδιο το web player JS του YouTube παρακολουθεί το Page
+  Visibility API (`document.hidden`/`visibilitychange`) και σταματάει μόνο του το βίντεο
+  μόλις η σελίδα αναφερθεί ως κρυμμένη — ίδια συμπεριφορά με σχεδόν κάθε site με video player
+  (εξοικονόμηση μπαταρίας/bandwidth όταν το tab δεν είναι ορατό).
+- **Η λύση**: προστέθηκε στο `FeedScript.kt` ένα "resume guard" pattern, προσαρμοσμένο από το
+  ήδη αποδεδειγμένο `resume_guard.js` του project `no-algo-fb` (εκεί λύνει ανάλογο πρόβλημα).
+  - `document.hidden`/`webkitHidden`/`visibilityState`/`webkitVisibilityState` γίνονται pinned
+    μέσω `Object.defineProperty` ώστε να αναφέρουν πάντα "ορατό".
+  - Τα events `visibilitychange`, `webkitvisibilitychange`, `pagehide`, `pageshow`, `freeze`,
+    `resume` παγιδεύονται σε **capture phase πάνω στο `window`** — το DOM περνάει από εκεί
+    πριν φτάσει σε οποιονδήποτε listener πάνω στο `document` (όπου πραγματικά γίνεται dispatch
+    το `visibilitychange`, και όπου ζει ο listener του ίδιου του YouTube) — άρα η σειρά
+    καταγραφής (registration order) δεν έχει σημασία, μόνο η σειρά διέλευσης (capture πριν
+    bubble/target).
+  - Επιπλέον γίνεται override το `EventTarget.prototype.addEventListener` ώστε νέες
+    εγγραφές για αυτά τα events να αγνοούνται σιωπηλά — καλύπτει events που στοχεύουν
+    απευθείας το `window` (εκεί ένας capturing window listener δεν προλαβαίνει να είναι
+    "πριν" γιατί ΕΙΝΑΙ ο listener του window).
+  - Μπαίνει αμέσως μετά το `isAdBlockEnabled()` στο injected script, πριν το τμήμα
+    αφαίρεσης διαφημιών — τρέχει σε document-start, άρα πριν προλάβει να τρέξει οποιοδήποτε
+    δικό του YouTube script.
+- ⚠️ **Δεν έχει επιβεβαιωθεί ακόμα σε πραγματική συσκευή** — επόμενο βήμα είναι ο χρήστης να
+  ξαναδοκιμάσει background audio μετά από αυτό το build.
 
 ## Περιορισμός στο περιβάλλον όπου γράφτηκε ο κώδικας
 Το sandbox αυτής της συνεδρίας **δεν έχει πρόσβαση σε `dl.google.com`** (Google's Maven
