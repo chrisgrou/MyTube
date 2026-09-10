@@ -447,12 +447,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var playbackServiceRunning = false
+
     /**
      * PlaybackService's only job is to keep this process alive (and so the
      * WebView's audio playing) once the app is backgrounded or the screen locks;
      * see its own doc comment for why a foreground service is what that takes.
+     *
+     * Guarded against redundant calls: onVideoPlayingChanged(true) fires on
+     * every 'playing' event, not just the first one for a given video (resume
+     * after pause, recovering from buffering, a quality change reapplying...).
+     * Calling startForegroundService again each time re-invokes the service's
+     * onStartCommand, which used to re-request audio focus every single time —
+     * that repeated re-acquisition was stealing focus back from the WebView's
+     * own already-playing video, which reacted by auto-pausing itself within
+     * milliseconds (the "tap play, it plays for an instant, then pauses again"
+     * bug). PlaybackService itself now also guards against a redundant
+     * request as a second line of defense, but not calling
+     * startForegroundService at all when already running avoids the
+     * onStartCommand round-trip entirely.
      */
     private fun setPlaybackServiceRunning(running: Boolean) {
+        if (running == playbackServiceRunning) return
+        playbackServiceRunning = running
         val intent = Intent(this, PlaybackService::class.java)
         if (running) {
             ContextCompat.startForegroundService(this, intent)

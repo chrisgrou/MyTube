@@ -389,3 +389,25 @@ selectors. Αν κάτι σχετικό με DOM/selectors "σπάσει" ξαν
     μετράει ως τέτοιο μέσα σε ένα τρίτο-μέρους WebView (σε αντίθεση με το πραγματικό Chrome
     app, που μπορεί να έχει ειδική μεταχείριση). Αν το browser αρνηθεί το request,
     αποτυγχάνει σιωπηλά (καμία ένδειξη σφάλματος) — απλό επόμενο βήμα αν δεν δουλέψει.
+
+### 12. Fix: "play" σταματούσε το βίντεο σχεδόν αμέσως (v1.7.8)
+Άσχετο με το seek bug — νέο debug log (ίδιο μηχανισμό, ενότητα 10) το αποκάλυψε: ο χρήστης
+πατούσε play ενώ το βίντεο ήταν σε παύση, το βίντεο έπαιζε για ελάχιστα ms
+(`play`→`playing`→`pause` μέσα σε 30-100ms, χωρίς κανένα `seeking` ενδιάμεσα), επαναλαμβανόμενα.
+
+- **Αιτία**: `MainActivity.setPlaybackServiceRunning(true)` καλούνταν χωρίς όρους σε **κάθε**
+  `playing` event — όχι μόνο στο πρώτο για ένα βίντεο, αλλά και σε κάθε resume από παύση,
+  ανάκαμψη από buffering, επανεφαρμογή ποιότητας, κ.λπ. Κάθε τέτοια κλήση ξανάτρεχε
+  `startForegroundService` → `PlaybackService.onStartCommand` → `requestAudioFocus()`, που
+  έφτιαχνε ένα **καινούργιο** `AudioFocusRequest` κάθε φορά. Αυτό το επαναλαμβανόμενο request
+  "διέκοπτε" το ήδη κατεχόμενο audio focus του ίδιου του WebView player (που το YouTube
+  video element κρατάει φυσιολογικά όσο παίζει ήχο), προκαλώντας στο Chromium loss-of-focus
+  reaction — δηλαδή αυτο-παύση του video element μέσα σε λίγα ms.
+- **Fix, δύο επίπεδα**:
+  1. `MainActivity`: νέο flag `playbackServiceRunning` — το `setPlaybackServiceRunning` πια
+     δεν καλεί `startForegroundService`/`stopService` αν η ζητούμενη κατάσταση είναι ήδη η
+     τρέχουσα (no-op όταν το request είναι redundant).
+  2. `PlaybackService.requestAudioFocus()`: idempotent guard, δεν ξαναζητάει focus αν
+     `audioFocusRequest != null` (ήδη το κατέχει).
+- Πιθανώς προϋπήρχε από το v1.7.0 (background audio) — απλά δεν είχε αναφερθεί/εντοπιστεί
+  πριν αποκτήσουμε το debug-log εργαλείο.

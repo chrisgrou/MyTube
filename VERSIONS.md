@@ -136,3 +136,13 @@
   βίντεο (όχι Short/κάθετο) — ίδια συμπεριφορά με πραγματικό mobile browser. Best-effort:
   το Fullscreen API κανονικά απαιτεί user gesture, και μια περιστροφή συσκευής ίσως δεν
   μετράει πάντα ως τέτοιο μέσα σε WebView — αν αρνηθεί, απλά δεν συμβαίνει τίποτα (silent).
+
+## v1.7.8
+- **Fix: "πατάω play και παίζει για μια στιγμή, μετά ξαναμπαίνει σε παύση"** — άσχετο με το
+  seek, νέο debug log το αποκάλυψε. Αιτία: κάθε `playing` event (όχι μόνο το πρώτο για ένα
+  βίντεο — και σε resume, buffering recovery, αλλαγή ποιότητας) ξανακαλούσε
+  `startForegroundService` στο `PlaybackService`, που ξαναζητούσε audio focus
+  (`AUDIOFOCUS_GAIN`) κάθε φορά. Αυτό το επαναλαμβανόμενο request "έκλεβε" audio focus από
+  το ίδιο το WebView player, που έχανε focus και αυτο-παυσάριζε μέσα σε λίγα ms. Fix σε δύο
+  επίπεδα: το `MainActivity` δεν ξαναστέλνει το service αν ήδη τρέχει, και το ίδιο το
+  `PlaybackService` δεν ξαναζητάει audio focus αν το έχει ήδη.

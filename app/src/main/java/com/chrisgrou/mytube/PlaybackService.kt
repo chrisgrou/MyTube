@@ -90,6 +90,14 @@ class PlaybackService : Service() {
     }
 
     private fun requestAudioFocus() {
+        // Idempotent: onStartCommand can in principle run more than once for
+        // the same "playback session" (e.g. the system restarting the
+        // service). Re-requesting AUDIOFOCUS_GAIN when we already hold it
+        // creates a second, distinct AudioFocusRequest — Android then treats
+        // that as a new focus holder interrupting the previous one, which the
+        // WebView's own already-playing video reacts to by auto-pausing
+        // itself. See MainActivity.setPlaybackServiceRunning's doc comment.
+        if (audioFocusRequest != null) return
         val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
