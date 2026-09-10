@@ -217,6 +217,18 @@ reload) και δείχνει/κρύβει το κουμπί ανάλογα (`up
     κατευθείαν στη συνομιλία. Όλο αυτό (DebugLog.kt, το bridge method, το section στο
     settings layout) είναι προσωρινό και θα αφαιρεθεί μαζί με το υπόλοιπο diagnostic
     logging μόλις βρεθεί η πραγματική αιτία του seek-pause bug.
+  - **Το debug log αποκάλυψε τα πραγματικά δεδομένα (v1.7.6)**: ο χρήστης ανέφερε ότι το
+    πρόβλημα συμβαίνει **και εκτός fullscreen** — άρα καμία σχέση με `PlayerGestureLayout`
+    ή με `webView.visibility` (και τα δύο μόνο σε fullscreen τρέχουν). Το log έδειξε το
+    πραγματικό μοτίβο: `seeking` → `pause` (φυσιολογικό, άμεσο) → `seeked` με
+    `readyState=4` (ήδη πλήρως buffered) → αλλά το `play` event από το ίδιο το YouTube
+    έρχεται **σταθερά ~1.5-2.2 δευτερόλεπτα αργότερα**, όχι αμέσως. Αυτή η καθυστέρηση
+    (πιθανό δικό του ad-eligibility/analytics check στο YouTube, όχι κάτι δικό μας) είναι
+    αυτό που ο χρήστης αντιλαμβάνεται ως "μπαίνει σε παύση". Fix: το injected script
+    θυμάται αν το βίντεο έπαιζε πριν το seek (`mtShouldBePlaying`, ενημερώνεται μόνο από
+    πραγματικό `playing`/`ended`, όχι από το ενδιάμεσο `pause` του ίδιου του seek) και, αν
+    μετά το `seeked` παραμένει σε παύση πάνω από 600ms, καλεί το ίδιο `video.play()`. Δεν
+    διορθώνει την υποκείμενη αιτία του YouTube — απλά δεν την περιμένει.
 - **Keep screen on**: ένα WebView δεν κρατάει την οθόνη ξύπνια όπως ο browser, οπότε η οθόνη
   σκοτείνιαζε στη μέση του βίντεο. Το injected script ακούει `play`/`playing`/`pause`/`ended`
   **σε capture phase** (τα media events δεν κάνουν bubble) και το native βάζει/βγάζει

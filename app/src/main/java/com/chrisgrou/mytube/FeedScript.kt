@@ -327,6 +327,32 @@ object FeedScript {
   document.addEventListener('ended', function() { reportVideoPlaying(false); }, true);
 
   // ---------------------------------------------------------------------------
+  // Nudge playback back on after a seek.
+  //
+  // Captured logs (both in and out of fullscreen — this isn't fullscreen-
+  // specific) show the player consistently taking ~1.5-2.2s to call its own
+  // play() again after a seek, well after the video is already fully buffered
+  // (readyState 4 / canplay). That gap reads to the user as "seeking pauses
+  // the video". Whatever YouTube's own code is waiting on there isn't
+  // something this script can fix, so instead: remember whether the video was
+  // actually playing before the seek started, and if it's still paused a
+  // short moment after the seek finishes, resume it ourselves.
+  // ---------------------------------------------------------------------------
+  var SEEK_RESUME_GRACE_MS = 600;
+  var mtShouldBePlaying = false;
+  document.addEventListener('playing', function() { mtShouldBePlaying = true; }, true);
+  document.addEventListener('ended', function() { mtShouldBePlaying = false; }, true);
+  document.addEventListener('seeked', function(e) {
+    var video = e.target;
+    if (!video || !mtShouldBePlaying) return;
+    setTimeout(function() {
+      if (video.paused && !video.ended) {
+        try { video.play(); } catch (err) {}
+      }
+    }, SEEK_RESUME_GRACE_MS);
+  }, true);
+
+  // ---------------------------------------------------------------------------
   // TEMPORARY diagnostic logging for the "seek in fullscreen leaves it paused"
   // bug (v1.7.3's fix — not hiding the WebView anymore — did not resolve it).
   // The user has no way to pull Logcat off their device, so this also feeds
