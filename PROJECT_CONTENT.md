@@ -198,6 +198,17 @@ reload) και δείχνει/κρύβει το κουμπί ανάλογα (`up
     δεν έτρεχε καθόλου. Λύση: το WebView μένει `VISIBLE` σε όλη τη διάρκεια του fullscreen —
     δεν χρειαζόταν να κρύβεται έτσι κι αλλιώς, αφού το αδιαφανές fullscreen container το
     καλύπτει πλήρως οπτικά.
+  - ⚠️ **Ο χρήστης δοκίμασε αυτό το build και το πρόβλημα παρέμεινε** ("πάλι κάνει παύση") —
+    άρα η θεωρία περί throttling λόγω `View.GONE` ήταν λάθος ή τουλάχιστον ανεπαρκής. Αντί
+    για τρίτη μαντεψιά, προστέθηκε **προσωρινό diagnostic logging** γύρω από τα video events
+    (`seeking`/`seeked`/`pause`/`play`/`playing`/`waiting`/`stalled`/`canplay`/`suspend`) στο
+    `FeedScript.kt`, με timestamp + `paused`/`currentTime`/`readyState`/`networkState` του
+    video element — μέσω `console.log('MyTube[seekdebug] ...')`, ήδη προωθείται σε Logcat με
+    tag `MyTubeWebView` από το υπάρχον `onConsoleMessage`. **Επόμενο βήμα**: ο χρήστης να
+    αναπαράγει το πρόβλημα ενώ κάποιος βλέπει/καταγράφει το logcat (π.χ. `adb logcat -s
+    MyTubeWebView` από υπολογιστή, ή κάποια logcat-viewer εφαρμογή στο ίδιο το κινητό), ώστε
+    να φανεί ποιο ακριβώς event λείπει/έρχεται λάθος πριν αποφασιστεί το πραγματικό fix. Να
+    αφαιρεθεί το logging μόλις βρεθεί η αιτία.
 - **Keep screen on**: ένα WebView δεν κρατάει την οθόνη ξύπνια όπως ο browser, οπότε η οθόνη
   σκοτείνιαζε στη μέση του βίντεο. Το injected script ακούει `play`/`playing`/`pause`/`ended`
   **σε capture phase** (τα media events δεν κάνουν bubble) και το native βάζει/βγάζει

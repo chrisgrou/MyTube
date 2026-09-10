@@ -326,6 +326,28 @@ object FeedScript {
   document.addEventListener('pause', function() { reportVideoPlaying(false); }, true);
   document.addEventListener('ended', function() { reportVideoPlaying(false); }, true);
 
+  // ---------------------------------------------------------------------------
+  // TEMPORARY diagnostic logging for the "seek in fullscreen leaves it paused"
+  // bug (v1.7.3's fix — not hiding the WebView anymore — did not resolve it).
+  // Logs land in Logcat via onConsoleMessage (anything containing "MyTube").
+  // Remove once the real cause is found.
+  // ---------------------------------------------------------------------------
+  function logVideoEvent(type, video) {
+    if (!video) return;
+    try {
+      console.log('MyTube[seekdebug] ' + type +
+        ' t=' + Date.now() +
+        ' paused=' + video.paused +
+        ' currentTime=' + video.currentTime.toFixed(2) +
+        ' readyState=' + video.readyState +
+        ' networkState=' + video.networkState +
+        ' ended=' + video.ended);
+    } catch (e) {}
+  }
+  ['seeking', 'seeked', 'pause', 'play', 'playing', 'waiting', 'stalled', 'canplay', 'suspend'].forEach(function(type) {
+    document.addEventListener(type, function(e) { logVideoEvent(type, e.target); }, true);
+  });
+
   // Report the video's shape so native only forces landscape on entering
   // fullscreen when the video is actually landscape — a portrait video (or a
   // Short) has to stay portrait.
