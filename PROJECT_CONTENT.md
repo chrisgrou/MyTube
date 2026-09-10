@@ -182,6 +182,13 @@ reload) και δείχνει/κρύβει το κουμπί ανάλογα (`up
   - Η ένταση συσσωρεύεται ως float μέσα στο gesture, γιατί το stream volume είναι πολύ
     χοντρικό (0..15) και αλλιώς μικρά drags στρογγυλοποιούνται στο τίποτα.
   - Η φωτεινότητα επιστρέφει στο system default (`BRIGHTNESS_OVERRIDE_NONE`) στην έξοδο.
+  - **Bug (v1.7.2)**: το `onTouchEvent` επέστρεφε `true` χωρίς όρους για κάθε `ACTION_MOVE`
+    (το `if (dragging)` καθόριζε μόνο αν θα καλούνταν το `onVerticalDrag`, όχι το `return`).
+    Αν το εσωτερικό video view δεν κατανάλωνε ένα tap-event μόνο του, το event έπεφτε πίσω
+    στο `onTouchEvent` του γονέα και "καταπινόταν" εκεί χωρίς λόγο — αυτό χαλούσε το timing
+    ενός double-tap (π.χ. double tap για seek +10": ο χρήστης το ανέφερε ως το βίντεο να
+    μπαίνει σε παύση αντί να συνεχίσει). Διορθώθηκε ώστε το layout να μην καταναλώνει τίποτα
+    εκτός αν υπάρχει ήδη ενεργό κάθετο drag (`if (!dragging) return false` στην αρχή).
 - **Keep screen on**: ένα WebView δεν κρατάει την οθόνη ξύπνια όπως ο browser, οπότε η οθόνη
   σκοτείνιαζε στη μέση του βίντεο. Το injected script ακούει `play`/`playing`/`pause`/`ended`
   **σε capture phase** (τα media events δεν κάνουν bubble) και το native βάζει/βγάζει

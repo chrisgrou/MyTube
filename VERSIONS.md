@@ -86,3 +86,11 @@
   script (pattern δανεισμένο από το `no-algo-fb`): `document.hidden`/`visibilityState`
   πάντα "ορατό", και τα σχετικά events (`visibilitychange`, `pagehide`, `pageshow`, κ.λπ.)
   μπλοκάρονται πριν φτάσουν στο YouTube.
+
+## v1.7.2
+- **Fix double-tap-to-seek σε fullscreen**: το `PlayerGestureLayout` (swipe για
+  φωτεινότητα/ένταση) "κατάπινε" κάθε `ACTION_MOVE` χωρίς όρους, ακόμα κι όταν δεν γινόταν
+  πραγματικό drag — αν το εσωτερικό video view δεν κατανάλωνε ένα tap, αυτό το layout το
+  έπιανε αντί γι' αυτό, χαλώντας το timing που χρειάζεται το player για να αναγνωρίσει
+  double-tap. Αποτέλεσμα: το double tap για seek +10" έμπαινε σε παύση αντί να συνεχίσει.
+  Το layout πλέον αφήνει ανέγγιχτο οτιδήποτε δεν είναι ενεργό κάθετο drag.

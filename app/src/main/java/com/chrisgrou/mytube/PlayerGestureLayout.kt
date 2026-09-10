@@ -53,23 +53,26 @@ class PlayerGestureLayout(context: Context) : FrameLayout(context) {
     }
 
     override fun onTouchEvent(ev: MotionEvent): Boolean {
+        // Only ever consume events that are actually part of an active drag. If
+        // this returned true unconditionally for ACTION_MOVE, any tap sequence
+        // that ends up here (e.g. the video view not claiming ACTION_DOWN itself)
+        // would get swallowed by this layout instead of reaching the player,
+        // breaking gesture timing there — including double-tap-to-seek, which
+        // needs two taps to land within the player's own double-tap window.
+        if (!dragging) return false
         when (ev.actionMasked) {
             MotionEvent.ACTION_MOVE -> {
-                if (dragging) {
-                    val delta = ev.y - lastY
-                    lastY = ev.y
-                    onVerticalDrag?.invoke(startedOnLeftHalf, delta)
-                }
+                val delta = ev.y - lastY
+                lastY = ev.y
+                onVerticalDrag?.invoke(startedOnLeftHalf, delta)
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (dragging) {
-                    dragging = false
-                    onDragEnd?.invoke()
-                    return true
-                }
+                dragging = false
+                onDragEnd?.invoke()
+                return true
             }
         }
-        return dragging
+        return true
     }
 }
