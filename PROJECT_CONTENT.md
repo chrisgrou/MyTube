@@ -372,3 +372,20 @@ keystore/debug.keystore   - committed debug key (βλ. ενότητα 4 παρα
 το πλήρες HTML που βλέπει πραγματικά η συσκευή — πολύ πιο αξιόπιστο από το να μαντεύουμε
 selectors. Αν κάτι σχετικό με DOM/selectors "σπάσει" ξανά, το πρώτο πράγμα να ζητηθεί είναι
 ένα τέτοιο .mht από την οθόνη που έχει πρόβλημα.
+
+### 11. Μικρές βελτιώσεις μετά το seek-pause fix
+- Το grace period του nudge (ενότητα 10 / v1.7.6) μειώθηκε από 600ms σε 150ms κατόπιν
+  αιτήματος — τα ίδια logs έδειξαν ότι το `canplay` έρχεται σχεδόν αμέσως μετά το `seeked`,
+  οπότε δεν χρειαζόταν τόσο μεγάλο περιθώριο πριν το native `video.play()`.
+- **Αυτόματο fullscreen σε rotation (v1.7.7)**: `MainActivity.onConfigurationChanged`
+  (χρειάστηκε γιατί το manifest έχει ήδη `configChanges="orientation|..."`, άρα δεν
+  ξαναδημιουργείται η Activity σε rotation) καλεί
+  `window.__mytubeEnterFullscreenIfLandscapeVideo()` όταν η συσκευή γυρίσει σε landscape
+  ενώ δεν είμαστε ήδη σε fullscreen (`customView == null`). Η JS function βρίσκει το
+  ενεργό video (ίδιο helper `findActiveVideo()` με το `__mytubeVideoIsPortrait`), και αν
+  παίζει και είναι landscape-shaped (όχι Short/κάθετο), καλεί `video.requestFullscreen()`.
+  - ⚠️ **Άγνωστο αν θα δουλέψει σε πραγματική συσκευή**: το Fullscreen API κανονικά
+    απαιτεί "user gesture" (transient activation) — μια περιστροφή hardware ίσως δεν
+    μετράει ως τέτοιο μέσα σε ένα τρίτο-μέρους WebView (σε αντίθεση με το πραγματικό Chrome
+    app, που μπορεί να έχει ειδική μεταχείριση). Αν το browser αρνηθεί το request,
+    αποτυγχάνει σιωπηλά (καμία ένδειξη σφάλματος) — απλό επόμενο βήμα αν δεν δουλέψει.

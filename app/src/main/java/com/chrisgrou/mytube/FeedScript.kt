@@ -338,7 +338,7 @@ object FeedScript {
   // actually playing before the seek started, and if it's still paused a
   // short moment after the seek finishes, resume it ourselves.
   // ---------------------------------------------------------------------------
-  var SEEK_RESUME_GRACE_MS = 600;
+  var SEEK_RESUME_GRACE_MS = 150;
   var mtShouldBePlaying = false;
   document.addEventListener('playing', function() { mtShouldBePlaying = true; }, true);
   document.addEventListener('ended', function() { mtShouldBePlaying = false; }, true);
@@ -391,10 +391,10 @@ object FeedScript {
   document.addEventListener('playing', function(e) { reportVideoAspect(e.target); }, true);
   document.addEventListener('resize', function(e) { reportVideoAspect(e.target); }, true);
 
-  // Queried by native right after fullscreen starts, to confirm the reported
-  // shape belonged to the video actually being watched. Prefers a video that is
-  // playing, then the largest one; returns null if nothing has dimensions yet.
-  window.__mytubeVideoIsPortrait = function() {
+  // Shared by __mytubeVideoIsPortrait and __mytubeEnterFullscreenIfLandscapeVideo
+  // below: picks the video most likely to be "the one the user is watching" —
+  // prefers one that's playing, then the largest.
+  function findActiveVideo() {
     var videos = document.querySelectorAll('video');
     var best = null;
     for (var i = 0; i < videos.length; i++) {
@@ -406,8 +406,34 @@ object FeedScript {
       var bigger = (v.videoWidth * v.videoHeight) > (best.videoWidth * best.videoHeight);
       if (betterState || (!worseState && bigger)) best = v;
     }
+    return best;
+  }
+
+  // Queried by native right after fullscreen starts, to confirm the reported
+  // shape belonged to the video actually being watched.
+  window.__mytubeVideoIsPortrait = function() {
+    var best = findActiveVideo();
     if (!best) return null;
     return best.videoHeight > best.videoWidth;
+  };
+
+  // Called by native (MainActivity.onConfigurationChanged) when the device is
+  // rotated to landscape while not already in fullscreen: automatically enters
+  // fullscreen for whatever landscape-shaped video is currently playing, the
+  // same way rotating while watching already behaves in a real mobile browser.
+  // Best-effort: the Fullscreen API normally requires a user gesture, and a
+  // hardware rotation may or may not count as one inside a WebView — if the
+  // browser refuses, requestFullscreen() rejects and this is a silent no-op.
+  window.__mytubeEnterFullscreenIfLandscapeVideo = function() {
+    try {
+      if (document.fullscreenElement) return;
+      var video = findActiveVideo();
+      if (!video || video.paused || video.ended) return;
+      if (video.videoHeight >= video.videoWidth) return; // portrait/Short: leave it alone
+      var request = video.requestFullscreen || video.webkitRequestFullscreen ||
+        video.webkitEnterFullscreen;
+      if (request) request.call(video);
+    } catch (e) {}
   };
 
   var observer = new MutationObserver(function() { tick(); });

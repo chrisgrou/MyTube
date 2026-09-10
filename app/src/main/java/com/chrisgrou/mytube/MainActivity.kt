@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Color
 import android.media.AudioManager
 import android.net.Uri
@@ -490,6 +491,25 @@ class MainActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         webView.saveState(outState)
+    }
+
+    /**
+     * The manifest declares configChanges for orientation, so rotating doesn't
+     * recreate the Activity — this is the hook that fires instead. Rotating to
+     * landscape while a landscape-shaped video is playing (and we're not
+     * already in fullscreen) auto-enters fullscreen for it, the same way a
+     * real mobile browser does. Best-effort: the page's own requestFullscreen()
+     * call can be refused if the WebView doesn't treat a hardware rotation as
+     * a qualifying user gesture, in which case this is a silent no-op.
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (customView != null) return
+        if (newConfig.orientation != Configuration.ORIENTATION_LANDSCAPE) return
+        webView.evaluateJavascript(
+            "window.__mytubeEnterFullscreenIfLandscapeVideo && window.__mytubeEnterFullscreenIfLandscapeVideo();",
+            null
+        )
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
