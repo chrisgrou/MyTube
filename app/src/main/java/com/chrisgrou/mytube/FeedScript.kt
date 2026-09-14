@@ -338,11 +338,28 @@ object FeedScript {
   // actually playing before the seek started, and if it's still paused a
   // short moment after the seek finishes, resume it ourselves.
   // ---------------------------------------------------------------------------
+  //
+  // Only nudges when the video was actually playing right before the seek —
+  // not when the user had it paused and just wants to move the position
+  // (double-tap seeking a paused video shouldn't start it playing; seeking a
+  // playing video should keep it playing). Distinguishing those two needs
+  // more than "was it ever playing" (mtShouldBePlaying used to only ever be
+  // set true and never cleared): a real user pause and the seek's own
+  // momentary auto-pause both fire the same 'pause' event, so a 'pause' only
+  // counts as a real one if it didn't happen during an active seek — observed
+  // event order is 'seeking' fires first, then 'pause' shortly after, so
+  // mtSeekInProgress is already true by the time that 'pause' arrives.
   var SEEK_RESUME_GRACE_MS = 150;
   var mtShouldBePlaying = false;
+  var mtSeekInProgress = false;
   document.addEventListener('playing', function() { mtShouldBePlaying = true; }, true);
   document.addEventListener('ended', function() { mtShouldBePlaying = false; }, true);
+  document.addEventListener('pause', function() {
+    if (!mtSeekInProgress) mtShouldBePlaying = false;
+  }, true);
+  document.addEventListener('seeking', function() { mtSeekInProgress = true; }, true);
   document.addEventListener('seeked', function(e) {
+    mtSeekInProgress = false;
     var video = e.target;
     if (!video || !mtShouldBePlaying) return;
     setTimeout(function() {
