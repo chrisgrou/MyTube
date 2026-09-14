@@ -455,3 +455,23 @@ requirement δεν επαληθεύτηκε ως πρόβλημα σε πράξ�
 - ⚠️ Το selector για το κουμπί **δεν έχει επιβεβαιωθεί** πάνω σε πραγματικό captured DOM (σε
   αντίθεση με τα περισσότερα άλλα selectors σε αυτό το αρχείο) — αν δεν πιάσει κανένα από
   αυτά, το επόμενο βήμα θα ήταν να ζητηθεί .mht/screenshot του fullscreen player UI.
+
+### 15. Fix: auto-fullscreen σε rotation δεν ενεργοποιούνταν πάντα (v1.7.11)
+Screenshot του χρήστη επιβεβαίωσε: μετά από rotation το video απλά φάρδαινε σε landscape
+(YouTube's δικό του inline-responsive layout) χωρίς να μπαίνει σε πραγματικό fullscreen —
+status bar, header (λογότυπο/search/menu) παρέμεναν ορατά. Ο χρήστης παρατήρησε ότι πρέπει
+πρώτα να πατήσει μέσα στο βίντεο για να "πιάσει" το auto-fullscreen στο επόμενο rotation.
+
+- **Αιτία (θεωρία)**: το `__mytubeEnterFullscreenIfLandscapeVideo` (ενότητα 14) έκανε ένα
+  και μόνο `querySelector(FULLSCREEN_BUTTON_SELECTOR)` τη στιγμή του rotation. Αν το controls
+  overlay του player (όπου ζει το κουμπί fullscreen) δεν έχει ακόμα φτιαχτεί στο DOM —
+  πιθανόν lazy-initialized μόνο μετά από κάποιο tap/interaction πάνω στο player — το
+  selector δεν έβρισκε τίποτα, έπεφτε στο fallback (`video.requestFullscreen()` απευθείας),
+  το οποίο πιθανόν επίσης απέτυχε σιωπηλά (user-gesture concern, ενότητα 11). Το προηγούμενο
+  tap-πρώτα του χρήστη έκανε ακριβώς αυτό το lazy setup να τρέξει νωρίτερα.
+- **Fix**: το function πλέον ξαναδοκιμάζει (retry loop, `setInterval` 250ms, έως 8 φορές
+  ~2s) αντί να τα παρατήσει μετά τον πρώτο έλεγχο — δίνει χρόνο στο player να φτιάξει το
+  controls overlay του πριν καταφύγουμε στο λιγότερο αξιόπιστο απευθείας API fallback.
+- ⚠️ Παραμένει best-effort: αν το selector του κουμπιού είναι απλά λάθος (δεν έχει
+  επιβεβαιωθεί σε πραγματικό DOM ακόμα), το retry δεν θα βοηθήσει — θα χρειαστεί τελικά ένα
+  captured .mht/screenshot του fullscreen player UI για να επιβεβαιωθεί το πραγματικό markup.

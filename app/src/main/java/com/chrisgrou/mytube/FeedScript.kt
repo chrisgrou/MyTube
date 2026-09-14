@@ -433,21 +433,42 @@ object FeedScript {
   var FULLSCREEN_BUTTON_SELECTOR = '.ytp-fullscreen-button, .ytp-fullscreen-control, ' +
     'button[aria-label*="Πλήρης οθόνη"], button[aria-label*="Fullscreen" i], ' +
     'button[aria-label*="Full screen" i], button[title*="Fullscreen" i]';
+  // Right at the moment of rotation, the player's controls overlay (including
+  // the fullscreen button) may not exist in the DOM yet — on mobile YouTube it
+  // looks like it's only fully (re)built once the player itself is interacted
+  // with, which is why tapping the video first before rotating was masking
+  // this: that tap did the same lazy setup this would otherwise be racing.
+  // So retry for a couple of seconds instead of giving up after one check.
+  var FULLSCREEN_RETRY_MS = 250;
+  var FULLSCREEN_RETRY_ATTEMPTS = 8; // ~2s total
   window.__mytubeEnterFullscreenIfLandscapeVideo = function() {
-    try {
-      if (document.fullscreenElement) return;
-      var video = findActiveVideo();
-      if (!video || video.paused || video.ended) return;
-      if (video.videoHeight >= video.videoWidth) return; // portrait/Short: leave it alone
-      var button = document.querySelector(FULLSCREEN_BUTTON_SELECTOR);
-      if (button) { button.click(); return; }
-      // Fallback if the button can't be found: still enters fullscreen, just
-      // without YouTube's own controls layered on top (the tap-to-pause quirk
-      // above).
-      var request = video.requestFullscreen || video.webkitRequestFullscreen ||
-        video.webkitEnterFullscreen;
-      if (request) request.call(video);
-    } catch (e) {}
+    var attempt = 0;
+    function tryEnter() {
+      attempt++;
+      try {
+        if (document.fullscreenElement) return true;
+        var video = findActiveVideo();
+        if (!video || video.paused || video.ended) return false;
+        if (video.videoHeight >= video.videoWidth) return true; // portrait/Short: leave it alone
+        var button = document.querySelector(FULLSCREEN_BUTTON_SELECTOR);
+        if (button) { button.click(); return true; }
+        // No button found yet. Once we've retried a few times, fall back to
+        // the direct API call rather than keep waiting indefinitely — enters
+        // fullscreen without YouTube's own controls layered on top (the
+        // tap-to-pause quirk noted above), but that's better than nothing.
+        if (attempt >= FULLSCREEN_RETRY_ATTEMPTS) {
+          var request = video.requestFullscreen || video.webkitRequestFullscreen ||
+            video.webkitEnterFullscreen;
+          if (request) request.call(video);
+          return true;
+        }
+        return false;
+      } catch (e) { return true; }
+    }
+    if (tryEnter()) return;
+    var timer = setInterval(function() {
+      if (tryEnter() || attempt >= FULLSCREEN_RETRY_ATTEMPTS) clearInterval(timer);
+    }, FULLSCREEN_RETRY_MS);
   };
 
   var observer = new MutationObserver(function() { tick(); });
