@@ -490,3 +490,17 @@ status bar, header (λογότυπο/search/menu) παρέμεναν ορατά.
   εξέλιξη seek** — έτσι ξεχωρίζει σωστά μια πραγματική παύση του χρήστη (κανένα `seeking`
   δεν προηγήθηκε) από την παύση που προκαλεί το ίδιο το seek εσωτερικά (πάντα προηγείται
   `seeking`, επιβεβαιωμένο από τα captured logs — `seeking` έρχεται λίγα ms πριν το `pause`).
+
+### 17. Auto-fullscreen σε rotation ακόμα αναξιόπιστο — diagnostic logging (v1.7.13)
+Δύο προσπάθειες fix (ενότητες 14, 15) δεν το διόρθωσαν πλήρως — ο χρήστης ανέφερε ξανά ότι
+δεν μπαίνει σε fullscreen αυτόματα. Αντί για άλλη μαντεψιά χωρίς στοιχεία, προστέθηκε
+`MyTube[fsdebug]` logging σε κάθε κλαδί του `__mytubeEnterFullscreenIfLandscapeVideo`
+(κλήση, video not found, paused/ended, portrait, button found/not found, exception, resultat
+του fallback API call) — ίδιο μηχανισμό (`MyTubeNative.logDebug` → `DebugLog` → κουμπί
+"Αντιγραφή debug log" στις Ρυθμίσεις) με αυτό που έλυσε επιτυχώς το seek-pause bug.
+
+Επόμενο βήμα: ο χρήστης να περιστρέψει τη συσκευή μερικές φορές (και σε επιτυχείς και σε
+αποτυχημένες περιπτώσεις αν μπορεί να τις ξεχωρίσει), μετά να αντιγράψει/στείλει τις γραμμές
+`fsdebug`. Αν δεν εμφανιστεί ΚΑΘΟΛΟΥ γραμμή "called", το πρόβλημα είναι στο native
+(`MainActivity.onConfigurationChanged` δεν πυροδοτείται/δεν φτάνει το `evaluateJavascript`)
+όχι στο JS logic.

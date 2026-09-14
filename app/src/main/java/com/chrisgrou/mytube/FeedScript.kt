@@ -458,29 +458,66 @@ object FeedScript {
   // So retry for a couple of seconds instead of giving up after one check.
   var FULLSCREEN_RETRY_MS = 250;
   var FULLSCREEN_RETRY_ATTEMPTS = 8; // ~2s total
+
+  // TEMPORARY diagnostic logging for "auto-fullscreen on rotate still doesn't
+  // trigger" — same DebugLog/copy-button mechanism as the seek-pause bug.
+  // Remove once the real cause is found.
+  function mtFsLog(message) {
+    try {
+      var line = 'MyTube[fsdebug] ' + message;
+      console.log(line);
+      if (window.MyTubeNative && window.MyTubeNative.logDebug) {
+        window.MyTubeNative.logDebug(line);
+      }
+    } catch (e) {}
+  }
+
   window.__mytubeEnterFullscreenIfLandscapeVideo = function() {
+    mtFsLog('called');
     var attempt = 0;
     function tryEnter() {
       attempt++;
       try {
-        if (document.fullscreenElement) return true;
+        if (document.fullscreenElement) { mtFsLog('attempt=' + attempt + ' already fullscreen'); return true; }
         var video = findActiveVideo();
-        if (!video || video.paused || video.ended) return false;
-        if (video.videoHeight >= video.videoWidth) return true; // portrait/Short: leave it alone
+        if (!video) { mtFsLog('attempt=' + attempt + ' no video found'); return false; }
+        if (video.paused || video.ended) {
+          mtFsLog('attempt=' + attempt + ' video paused=' + video.paused + ' ended=' + video.ended);
+          return false;
+        }
+        if (video.videoHeight >= video.videoWidth) {
+          mtFsLog('attempt=' + attempt + ' portrait video ' + video.videoWidth + 'x' + video.videoHeight + ', skipping');
+          return true;
+        }
         var button = document.querySelector(FULLSCREEN_BUTTON_SELECTOR);
-        if (button) { button.click(); return true; }
+        if (button) {
+          mtFsLog('attempt=' + attempt + ' clicking fullscreen button');
+          button.click();
+          return true;
+        }
         // No button found yet. Once we've retried a few times, fall back to
         // the direct API call rather than keep waiting indefinitely — enters
         // fullscreen without YouTube's own controls layered on top (the
         // tap-to-pause quirk noted above), but that's better than nothing.
         if (attempt >= FULLSCREEN_RETRY_ATTEMPTS) {
+          mtFsLog('attempt=' + attempt + ' no button found, falling back to requestFullscreen()');
           var request = video.requestFullscreen || video.webkitRequestFullscreen ||
             video.webkitEnterFullscreen;
-          if (request) request.call(video);
+          if (request) {
+            try {
+              request.call(video);
+              mtFsLog('requestFullscreen() call did not throw');
+            } catch (reqErr) {
+              mtFsLog('requestFullscreen() threw: ' + reqErr);
+            }
+          } else {
+            mtFsLog('no requestFullscreen-like method on video element');
+          }
           return true;
         }
+        mtFsLog('attempt=' + attempt + ' no fullscreen button yet, retrying');
         return false;
-      } catch (e) { return true; }
+      } catch (e) { mtFsLog('attempt=' + attempt + ' exception: ' + e); return true; }
     }
     if (tryEnter()) return;
     var timer = setInterval(function() {
