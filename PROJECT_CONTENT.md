@@ -504,3 +504,18 @@ status bar, header (λογότυπο/search/menu) παρέμεναν ορατά.
 `fsdebug`. Αν δεν εμφανιστεί ΚΑΘΟΛΟΥ γραμμή "called", το πρόβλημα είναι στο native
 (`MainActivity.onConfigurationChanged` δεν πυροδοτείται/δεν φτάνει το `evaluateJavascript`)
 όχι στο JS logic.
+
+### 18. Βρέθηκε η αιτία του auto-fullscreen fail: retry window πολύ μικρό (v1.7.14)
+Το `fsdebug` log (ενότητα 17) έδωσε την απάντηση καθαρά:
+
+- **Αποτυχημένη περίπτωση**: `play` event με `readyState=0` (μόλις ξεκίνησε να φορτώνει),
+  αμέσως μετά `waiting`, μετά **8/8 "no video found"** στο retry loop (~2" συνολικά) — το
+  `findActiveVideo()` απαιτεί video με έγκυρα `videoWidth`/`videoHeight`, τα οποία δεν
+  υπάρχουν πριν φορτώσει το metadata. Στο ίδιο log, το πραγματικό `seeking`/`playing` δεν
+  ήρθε παρά μετά από **~9.3 δευτερόλεπτα** από το αρχικό `play()` — πολύ πιο αργά απ' όσο
+  περίμενε το retry loop μας (2").
+- **Επιτυχημένη περίπτωση** (ίδιο log, λίγο αργότερα): το βίντεο ήταν ήδη φορτωμένο/έπαιζε
+  όταν έγινε rotation — `attempt=1 clicking fullscreen button` αμέσως, καμία καθυστέρηση.
+- **Fix**: `FULLSCREEN_RETRY_ATTEMPTS` από 8 σε 48 (250ms κάθε φορά) — από ~2" σε ~12"
+  συνολικό παράθυρο αναμονής. Το polling παραμένει φθηνό (απλά DOM queries), οπότε δεν
+  υπάρχει ουσιαστικό κόστος στο να περιμένει περισσότερο.

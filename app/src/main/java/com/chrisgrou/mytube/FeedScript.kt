@@ -456,8 +456,13 @@ object FeedScript {
   // with, which is why tapping the video first before rotating was masking
   // this: that tap did the same lazy setup this would otherwise be racing.
   // So retry for a couple of seconds instead of giving up after one check.
+  // Captured fsdebug logs showed the failing case isn't a missing button or a
+  // gesture rejection — it's the video simply not having loaded yet (still
+  // readyState 0 / "waiting" from a fresh play() call, ~9s from a slow-ish
+  // load in one capture). 2s wasn't enough margin; ~12s covers a much wider
+  // range of load times while staying a bounded, cheap poll.
   var FULLSCREEN_RETRY_MS = 250;
-  var FULLSCREEN_RETRY_ATTEMPTS = 8; // ~2s total
+  var FULLSCREEN_RETRY_ATTEMPTS = 48; // ~12s total
 
   // TEMPORARY diagnostic logging for "auto-fullscreen on rotate still doesn't
   // trigger" — same DebugLog/copy-button mechanism as the seek-pause bug.
