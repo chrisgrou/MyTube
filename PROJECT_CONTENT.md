@@ -558,3 +558,21 @@ disabled=false`, και 300ms μετά `fullscreenElement=null`. Το κουμπ
   άρα το Chromium το αναγνωρίζει ως γνήσιο user gesture.
 - Το diagnostic logging (ενότητες 17-19) παραμένει ενεργό ώστε να επιβεβαιωθεί ότι αυτή τη
   φορά το `fullscreenElement` πράγματι αλλάζει μετά το tap.
+
+### 21. Ούτε το synthetic touch αρκούσε — λείπει source=SOURCE_TOUCHSCREEN (v1.7.17)
+Το log επιβεβαίωσε ότι το synthetic touch (ενότητα 20) έφτασε στις σωστές συντεταγμένες
+(`(400,248)`, ίδιες σε κάθε κλήση — the layout is stable) αλλά ξανά `fullscreenElement=null`
+300ms μετά, σε πολλαπλές δοκιμές.
+
+- **Πιθανή αιτία**: `MotionEvent.obtain(...)` χωρίς ρητό `source` παίρνει default
+  `SOURCE_UNKNOWN` (0), όχι `SOURCE_TOUCHSCREEN`. Είναι γνωστό ότι κάποια Android/Chromium
+  components ελέγχουν το source ενός MotionEvent για να αποφασίσουν αν προέρχεται από
+  "αξιόπιστη" φυσική είσοδο πριν επιτρέψουν ενέργειες που απαιτούν user gesture.
+- **Fix**: `downEvent.source = InputDevice.SOURCE_TOUCHSCREEN` (και στο up event) πριν το
+  dispatch. Προστέθηκε επίσης logging (native, απευθείας σε `DebugLog`) του αν το
+  `dispatchTouchEvent` "κατανάλωσε" (consumed) τα events, ώστε αν αποτύχει ξανά να ξέρουμε
+  αν έφτασε έστω κάπου μέσα στο view hierarchy.
+- ⚠️ Αν ούτε αυτό αρκέσει, το επόμενο βήμα θα ήταν να δοκιμαστεί dispatch μέσω
+  `window.decorView.dispatchTouchEvent(...)` (με συντεταγμένες relative στο decor view,
+  προσθέτοντας το on-screen offset του WebView) αντί απευθείας στο `webView`, ώστε το event
+  να περάσει από ολόκληρο το input pipeline του παραθύρου όπως θα γινόταν με πραγματικό tap.

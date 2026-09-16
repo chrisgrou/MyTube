@@ -216,3 +216,12 @@
   για JS click, το native στέλνει τώρα **πραγματικό synthetic touch event** (MotionEvent
   μέσω `dispatchTouchEvent`) στις συντεταγμένες του κουμπιού — περνάει από το πραγματικό
   input pipeline του Android και μετράει ως γνήσιο gesture.
+
+## v1.7.17
+- **Ούτε το synthetic touch δούλεψε (log)** — σωστές συντεταγμένες, event στάλθηκε, αλλά
+  πάλι `fullscreenElement=null`. Πιθανή αιτία: το `MotionEvent.obtain()` έχει από default
+  `source=SOURCE_UNKNOWN`, όχι `SOURCE_TOUCHSCREEN` — το Chromium πιθανόν να αγνοεί events
+  που δεν αναφέρονται ως προερχόμενα από πραγματική οθόνη αφής, ακόμα κι αν το ίδιο το
+  κλικ-handler εκτελείται. Προστέθηκε ρητά `source = InputDevice.SOURCE_TOUCHSCREEN` στα
+  events, μαζί με logging του αν τα events "καταναλώθηκαν" (`dispatchTouchEvent` return
+  value) για επιβεβαίωση.

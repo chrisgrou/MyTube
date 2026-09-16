@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
+import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -553,9 +554,19 @@ class MainActivity : AppCompatActivity() {
         val upEvent = MotionEvent.obtain(
             downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, 0
         )
+        // MotionEvent.obtain() defaults to SOURCE_UNKNOWN, not
+        // SOURCE_TOUCHSCREEN — a first attempt without this still didn't
+        // register as a genuine gesture with Chromium's Fullscreen API check
+        // (confirmed by a captured debug log: correct coordinates, event
+        // dispatched, fullscreenElement still null after). Explicitly marking
+        // it as touchscreen-sourced is a known requirement for synthetic
+        // touches to be treated as trusted input rather than silently inert.
+        downEvent.source = InputDevice.SOURCE_TOUCHSCREEN
+        upEvent.source = InputDevice.SOURCE_TOUCHSCREEN
         try {
-            webView.dispatchTouchEvent(downEvent)
-            webView.dispatchTouchEvent(upEvent)
+            val downConsumed = webView.dispatchTouchEvent(downEvent)
+            val upConsumed = webView.dispatchTouchEvent(upEvent)
+            DebugLog.add("MyTube[fsdebug] native tap at ($x,$y) downConsumed=$downConsumed upConsumed=$upConsumed")
         } finally {
             downEvent.recycle()
             upEvent.recycle()
