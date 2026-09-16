@@ -502,10 +502,26 @@ object FeedScript {
             ' title="' + (button.getAttribute('title') || '') + '"' +
             ' visible=' + (button.offsetParent !== null) +
             ' disabled=' + !!button.disabled;
-          mtFsLog('attempt=' + attempt + ' clicking button: ' + desc);
-          button.click();
+          // A JS .click() invokes the button's handler, but doesn't carry real
+          // "user activation" as Chromium tracks it — confirmed by a captured
+          // log: correct, visible, enabled button, clicked, yet
+          // document.fullscreenElement stayed null 300ms later. So instead,
+          // ask native to dispatch a genuine synthetic touch (a real
+          // MotionEvent through the WebView's actual input pipeline, not a JS
+          // event) at the button's on-screen position — that *does* count as
+          // a real gesture. rect coordinates are CSS px relative to the
+          // viewport; native converts to device pixels using its own density.
+          var rect = button.getBoundingClientRect();
+          var cx = rect.left + rect.width / 2;
+          var cy = rect.top + rect.height / 2;
+          mtFsLog('attempt=' + attempt + ' requesting synthetic tap on button: ' + desc + ' at (' + cx + ',' + cy + ')');
+          try {
+            if (window.MyTubeNative && window.MyTubeNative.tapFullscreenButton) {
+              window.MyTubeNative.tapFullscreenButton(cx, cy);
+            }
+          } catch (tapErr) { mtFsLog('tapFullscreenButton bridge call threw: ' + tapErr); }
           setTimeout(function() {
-            mtFsLog('300ms after click: fullscreenElement=' + (document.fullscreenElement ? document.fullscreenElement.tagName : 'null'));
+            mtFsLog('300ms after tap: fullscreenElement=' + (document.fullscreenElement ? document.fullscreenElement.tagName : 'null'));
           }, 300);
           return true;
         }

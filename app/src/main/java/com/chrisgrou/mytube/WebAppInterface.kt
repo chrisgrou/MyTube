@@ -20,6 +20,7 @@ class WebAppInterface(
     private val onSetPullToRefreshAllowed: (Boolean) -> Unit,
     private val onVideoPlayingChanged: (Boolean) -> Unit,
     private val onVideoAspectChanged: (isPortrait: Boolean) -> Unit,
+    private val onTapFullscreenButton: (cssX: Double, cssY: Double) -> Unit,
 ) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -69,5 +70,17 @@ class WebAppInterface(
     @JavascriptInterface
     fun logDebug(message: String) {
         DebugLog.add(message)
+    }
+
+    // A JS .click() on YouTube's fullscreen button invokes its handler but
+    // doesn't carry real browser "user activation" — confirmed by a captured
+    // debug log where a correct, visible, enabled button was clicked yet
+    // fullscreen never engaged. So instead this asks native to dispatch a
+    // genuine synthetic touch (a real MotionEvent through the WebView's
+    // actual input pipeline) at the button's on-screen position, which does
+    // count as a real gesture. See MainActivity.tapFullscreenButton.
+    @JavascriptInterface
+    fun tapFullscreenButton(cssX: Double, cssY: Double) {
+        mainHandler.post { onTapFullscreenButton(cssX, cssY) }
     }
 }

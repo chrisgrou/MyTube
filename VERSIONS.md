@@ -207,3 +207,12 @@
   click δεν έχει αποτέλεσμα. Προστέθηκε λεπτομερές logging: τι ακριβώς είναι το στοιχείο
   που βρέθηκε (class/aria-label/title/ορατότητα/disabled) και αν το `document.fullscreenElement`
   πράγματι ενεργοποιήθηκε 300ms μετά το click.
+
+## v1.7.16
+- **Βρέθηκε η δεύτερη αιτία (και η πραγματική λύση)**: το debug log επιβεβαίωσε ότι το
+  κουμπί fullscreen βρίσκεται σωστά (ορατό, ενεργό, σωστό aria-label) και γίνεται click,
+  αλλά το fullscreen δεν ενεργοποιείται ποτέ — γιατί ένα JS `.click()` δεν μεταφέρει
+  πραγματικό "user gesture" στο Chromium, οπότε το Fullscreen API το αγνοεί σιωπηλά. Αντί
+  για JS click, το native στέλνει τώρα **πραγματικό synthetic touch event** (MotionEvent
+  μέσω `dispatchTouchEvent`) στις συντεταγμένες του κουμπιού — περνάει από το πραγματικό
+  input pipeline του Android και μετράει ως γνήσιο gesture.

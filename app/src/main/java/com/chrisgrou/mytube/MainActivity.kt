@@ -12,9 +12,11 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -144,6 +146,7 @@ class MainActivity : AppCompatActivity() {
                     setPlaybackServiceRunning(playing)
                 },
                 onVideoAspectChanged = { isPortrait -> lastVideoIsPortrait = isPortrait },
+                onTapFullscreenButton = { cssX, cssY -> tapFullscreenButton(cssX, cssY) },
             ),
             "MyTubeNative"
         )
@@ -515,9 +518,11 @@ class MainActivity : AppCompatActivity() {
      * recreate the Activity — this is the hook that fires instead. Rotating to
      * landscape while a landscape-shaped video is playing (and we're not
      * already in fullscreen) auto-enters fullscreen for it, the same way a
-     * real mobile browser does. Best-effort: the page's own requestFullscreen()
-     * call can be refused if the WebView doesn't treat a hardware rotation as
-     * a qualifying user gesture, in which case this is a silent no-op.
+     * real mobile browser does. The injected script locates YouTube's own
+     * fullscreen button and asks us to tap it (tapFullscreenButton below) —
+     * a JS .click() doesn't carry a real gesture, confirmed by a captured
+     * debug log where a correct, visible, enabled button was clicked yet
+     * fullscreen never engaged.
      */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
@@ -527,6 +532,34 @@ class MainActivity : AppCompatActivity() {
             "window.__mytubeEnterFullscreenIfLandscapeVideo && window.__mytubeEnterFullscreenIfLandscapeVideo();",
             null
         )
+    }
+
+    /**
+     * Dispatches a real synthetic touch (MotionEvent ACTION_DOWN then
+     * ACTION_UP) at the given position through the WebView's actual input
+     * pipeline — unlike a JS .click(), this does carry genuine browser "user
+     * activation", letting YouTube's own fullscreen-button handler succeed
+     * where a script-simulated click was silently refused. (cssX, cssY) are
+     * CSS pixels relative to the page viewport, as reported by the button's
+     * getBoundingClientRect() — converted here to device pixels, the
+     * coordinate space dispatchTouchEvent expects.
+     */
+    private fun tapFullscreenButton(cssX: Double, cssY: Double) {
+        val density = resources.displayMetrics.density
+        val x = (cssX * density).toFloat()
+        val y = (cssY * density).toFloat()
+        val downTime = SystemClock.uptimeMillis()
+        val downEvent = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x, y, 0)
+        val upEvent = MotionEvent.obtain(
+            downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, 0
+        )
+        try {
+            webView.dispatchTouchEvent(downEvent)
+            webView.dispatchTouchEvent(upEvent)
+        } finally {
+            downEvent.recycle()
+            upEvent.recycle()
+        }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

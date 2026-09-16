@@ -537,3 +537,24 @@ mobile fullscreen toggle (π.χ. ένα κρυφό desktop-skin κουμπί μ�
   ότι το στοιχείο που βρέθηκε δεν είναι ορατό/είναι λάθος button — οπότε το selector πρέπει
   να στενέψει/αλλάξει, είτε (β) ότι είναι σωστό αλλά το fullscreenElement παραμένει null
   μετά το click — οπότε το πρόβλημα είναι αλλού (π.χ. πραγματικά user-gesture rejection).
+
+### 20. Η πραγματική λύση: native synthetic touch αντί για JS .click() (v1.7.16)
+Το log της ενότητας 19 έδωσε την οριστική απάντηση: `attempt=1 clicking button: BUTTON
+class="icon-button fullscreen-icon" aria-label="Enter full screen" title="" visible=true
+disabled=false`, και 300ms μετά `fullscreenElement=null`. Το κουμπί ήταν 100% το σωστό — το
+πρόβλημα ήταν το ίδιο το μηχανισμό του `.click()`.
+
+- **Η βαθύτερη αιτία**: το Fullscreen API του browser (Chromium) απαιτεί πραγματικό "user
+  activation" — μια σημαία που θέτει το browser process όταν παραδίδει ένα πραγματικό input
+  event στο renderer. Ένα JS `element.click()` καλεί κανονικά τον handler του στοιχείου,
+  αλλά ΔΕΝ θέτει αυτή τη σημαία, γι' αυτό η κλήση `video.requestFullscreen()` μέσα στον
+  handler του YouTube απορρίπτεται σιωπηλά.
+- **Η λύση**: αντί να καλούμε `.click()` στο JS, το injected script υπολογίζει το κέντρο
+  του κουμπιού (`getBoundingClientRect()`, σε CSS px) και το στέλνει στο native μέσω νέου
+  bridge method `MyTubeNative.tapFullscreenButton(cssX, cssY)`. Το native
+  (`MainActivity.tapFullscreenButton`) μετατρέπει σε device pixels (πολλαπλασιάζοντας με το
+  `density`) και στέλνει **πραγματικό** `MotionEvent` (ACTION_DOWN + ACTION_UP) μέσω
+  `webView.dispatchTouchEvent(...)` — περνάει από το πραγματικό input pipeline του Android,
+  άρα το Chromium το αναγνωρίζει ως γνήσιο user gesture.
+- Το diagnostic logging (ενότητες 17-19) παραμένει ενεργό ώστε να επιβεβαιωθεί ότι αυτή τη
+  φορά το `fullscreenElement` πράγματι αλλάζει μετά το tap.
