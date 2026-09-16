@@ -31,6 +31,16 @@ class Prefs(context: Context) {
         get() = sp.getInt(KEY_LAST_VERSION_CODE, -1)
         set(value) = sp.edit().putInt(KEY_LAST_VERSION_CODE, value).apply()
 
+    // TEMPORARY: diagnosing "app closed during a phone call" — DebugLog is
+    // in-memory only, so it's wiped if the process actually dies (crash, or
+    // the system killing a backgrounded process). This survives that, since
+    // SharedPreferences.apply() is committed to disk immediately. Read once
+    // at the next startup (MyTubeApp) and cleared after being folded into
+    // DebugLog. Remove once the cause is found.
+    var lastCrashInfo: String?
+        get() = sp.getString(KEY_LAST_CRASH, null)
+        set(value) = sp.edit().putString(KEY_LAST_CRASH, value).apply()
+
     fun addHistoryEntry(versionName: String, versionCode: Int, timestampMillis: Long) {
         val history = historyEntries().toMutableList()
         history.add(0, HistoryEntry(versionName, versionCode, timestampMillis))
@@ -66,5 +76,6 @@ class Prefs(context: Context) {
         private const val KEY_VIDEO_QUALITY = "video_quality"
         private const val KEY_LAST_VERSION_CODE = "last_version_code"
         private const val KEY_HISTORY = "update_history"
+        private const val KEY_LAST_CRASH = "last_crash_info"
     }
 }

@@ -12,6 +12,8 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
@@ -452,6 +454,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var playbackServiceRunning = false
+    private val handler = Handler(Looper.getMainLooper())
+
+    companion object {
+        private const val STOP_SERVICE_DELAY_MS = 45_000L
+    }
 
     /**
      * PlaybackService's only job is to keep this process alive (and so the
@@ -470,15 +477,32 @@ class MainActivity : AppCompatActivity() {
      * request as a second line of defense, but not calling
      * startForegroundService at all when already running avoids the
      * onStartCommand round-trip entirely.
+     *
+     * Stopping is debounced by STOP_SERVICE_DELAY_MS: a real pause (the user
+     * tapping pause, the video ending) shouldn't keep the foreground service
+     * alive forever, but a *transient* interruption — a phone call is the
+     * reported case — pauses the video too, and that's exactly the moment
+     * the app is backgrounded and most exposed to the OS killing it for
+     * memory if nothing is holding foreground status. Giving pause a brief
+     * grace period before actually stopping the service means a call ending
+     * a few seconds later finds the process (and so the WebView, and so the
+     * video) still alive, rather than needing a full relaunch.
      */
+    private val stopServiceRunnable = Runnable {
+        playbackServiceRunning = false
+        stopService(Intent(this, PlaybackService::class.java))
+    }
+
     private fun setPlaybackServiceRunning(running: Boolean) {
-        if (running == playbackServiceRunning) return
-        playbackServiceRunning = running
-        val intent = Intent(this, PlaybackService::class.java)
         if (running) {
-            ContextCompat.startForegroundService(this, intent)
+            handler.removeCallbacks(stopServiceRunnable)
+            if (playbackServiceRunning) return
+            playbackServiceRunning = true
+            ContextCompat.startForegroundService(this, Intent(this, PlaybackService::class.java))
         } else {
-            stopService(intent)
+            if (!playbackServiceRunning) return
+            handler.removeCallbacks(stopServiceRunnable)
+            handler.postDelayed(stopServiceRunnable, STOP_SERVICE_DELAY_MS)
         }
     }
 
@@ -586,7 +610,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        setPlaybackServiceRunning(false)
+        // Stop immediately here rather than going through the debounced
+        // setPlaybackServiceRunning(false) — the Activity is actually going
+        // away, so there's no "might resume in a few seconds" case to
+        // protect against, and a pending delayed stop would otherwise try to
+        // touch a Service after this Activity (and its Handler's use of it)
+        // is gone.
+        handler.removeCallbacks(stopServiceRunnable)
+        stopServiceRunnable.run()
         (webView.parent as? ViewGroup)?.removeView(webView)
         webView.destroy()
         super.onDestroy()
