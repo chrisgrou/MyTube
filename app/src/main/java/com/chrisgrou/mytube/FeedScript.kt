@@ -496,8 +496,17 @@ object FeedScript {
         }
         var button = document.querySelector(FULLSCREEN_BUTTON_SELECTOR);
         if (button) {
-          mtFsLog('attempt=' + attempt + ' clicking fullscreen button');
+          var desc = (button.tagName || '?') +
+            ' class="' + (button.className || '') + '"' +
+            ' aria-label="' + (button.getAttribute('aria-label') || '') + '"' +
+            ' title="' + (button.getAttribute('title') || '') + '"' +
+            ' visible=' + (button.offsetParent !== null) +
+            ' disabled=' + !!button.disabled;
+          mtFsLog('attempt=' + attempt + ' clicking button: ' + desc);
           button.click();
+          setTimeout(function() {
+            mtFsLog('300ms after click: fullscreenElement=' + (document.fullscreenElement ? document.fullscreenElement.tagName : 'null'));
+          }, 300);
           return true;
         }
         // No button found yet. Once we've retried a few times, fall back to
